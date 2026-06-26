@@ -142,8 +142,12 @@ def _device_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
 async def _test_connection(cfg: dict) -> bool:
     client = build_client(cfg)
     try:
-        return bool(await client.connect())
-    except Exception:  # pragma: no cover - driver/OS/socket errors
+        if await client.connect():
+            return True
+        _LOGGER.warning("Waveshare: could not connect to %s", describe(cfg))
+        return False
+    except Exception as err:  # pragma: no cover - driver/OS/socket errors
+        _LOGGER.warning("Waveshare: connection to %s failed: %s", describe(cfg), err)
         return False
     finally:
         client.close()
@@ -158,7 +162,11 @@ async def _probe_board(cfg: dict, address: int, channels: int) -> bool:
             COIL_FIRST, count=channels, **{_unit_kw(): address}
         )
         return rr is not None and not rr.isError()
-    except Exception:
+    except Exception as err:
+        _LOGGER.warning(
+            "Waveshare: no reply from address %s on %s: %s",
+            address, describe(cfg), err,
+        )
         return False
     finally:
         client.close()
@@ -208,10 +216,11 @@ class WaveshareConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._transport = cfg
                 return await self.async_step_device()
 
+        schema = _serial_schema(await _list_ports(self.hass))
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(
-            step_id="serial",
-            data_schema=_serial_schema(await _list_ports(self.hass)),
-            errors=errors,
+            step_id="serial", data_schema=schema, errors=errors
         )
 
     async def async_step_network(
@@ -233,8 +242,11 @@ class WaveshareConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._transport = cfg
                 return await self.async_step_device()
 
+        schema = _network_schema()
+        if user_input is not None:
+            schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(
-            step_id="network", data_schema=_network_schema(), errors=errors
+            step_id="network", data_schema=schema, errors=errors
         )
 
     async def async_step_device(
