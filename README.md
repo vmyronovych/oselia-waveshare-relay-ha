@@ -68,6 +68,22 @@ the bus. Writes update the UI instantly and re-read to confirm.
 | `waveshare_relay.set_device_address` | **Commission a board's Modbus address from HA.** Put one board on the bus, target it, give a new address — the integration writes it, updates its own config, and reconnects on the new address. |
 | `waveshare_relay.set_baud_rate` | Change a board's RS485 baud rate (set every board on the bus to match). |
 
+### Bench provisioning tool (recommended before install)
+
+Before a board ever touches the shared bus, use the standalone CLI in
+[`tools/`](tools/) to set its address and smoke-test the relays on the bench (one board
+on a USB/RS485 adapter). It needs only `pyserial`, not Home Assistant:
+
+```sh
+./tools/waveshare_provision.py -p /dev/ttyUSB0 discover          # find the lone board
+./tools/waveshare_provision.py -p /dev/ttyUSB0 -a 1 set-address 5
+./tools/waveshare_provision.py -p /dev/ttyUSB0 -a 5 on 3         # test relay 3
+./tools/waveshare_provision.py -p /dev/ttyUSB0 -a 5 status
+```
+
+See [`tools/README.md`](tools/README.md) for the full command list. (Once boards are on
+the bus, the same address change is also available in-app via `set_device_address`.)
+
 ### Address commissioning, the easy way
 
 Out of the box every Waveshare board ships as **address 1**, so two boards on one bus
