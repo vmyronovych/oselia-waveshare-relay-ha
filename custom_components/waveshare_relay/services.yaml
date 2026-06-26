@@ -31,27 +31,34 @@ pulse:
 
 all_on:
   name: All relays on
-  description: Switch every relay on a board on in a single bus transaction.
+  description: >-
+    Switch every relay on a board on in a single bus transaction. Target any switch on
+    the board (or the board's device).
   target:
-    device:
+    entity:
       integration: waveshare_relay
+      domain: switch
 
 all_off:
   name: All relays off
-  description: Switch every relay on a board off in a single bus transaction.
+  description: >-
+    Switch every relay on a board off in a single bus transaction. Target any switch on
+    the board (or the board's device).
   target:
-    device:
+    entity:
       integration: waveshare_relay
+      domain: switch
 
 set_device_address:
   name: Set device (Modbus) address
   description: >-
     Write a board's Modbus address. Only ONE board may be on the bus while doing this
     (the broadcast/old address is used). The integration updates its own config and
-    reconnects on the new address automatically.
+    reconnects on the new address automatically. Target any switch on the board.
   target:
-    device:
+    entity:
       integration: waveshare_relay
+      domain: switch
   fields:
     new_address:
       name: New address
@@ -68,10 +75,12 @@ set_baud_rate:
   name: Set baud rate
   description: >-
     Write a board's RS485 baud rate. EVERY board on the same bus must use the same
-    baud rate, so set them all. The integration reconnects at the new rate.
+    baud rate, so set them all. The integration reconnects at the new rate. Target any
+    switch on the board.
   target:
-    device:
+    entity:
       integration: waveshare_relay
+      domain: switch
   fields:
     baud_rate:
       name: Baud rate

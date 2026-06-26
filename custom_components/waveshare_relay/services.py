@@ -13,7 +13,7 @@ import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.service import async_extract_referenced_entity_ids
 
@@ -100,17 +100,27 @@ def _relay_for_entity(
     return None
 
 
-def _coordinators_for_devices(hass: HomeAssistant, device_ids: list[str]):
-    """Yield (entry, coordinator) for each targeted HA device."""
-    dev_reg = dr.async_get(hass)
-    for device_id in device_ids:
-        device = dev_reg.async_get(device_id)
-        if device is None:
-            continue
-        idents = {ident for domain, ident in device.identifiers if domain == DOMAIN}
-        for entry, coord in _iter_coordinators(hass):
-            if f"{coord.hub.entry_id}_{coord.address}" in idents:
-                yield entry, coord
+def _coordinator_for_entity(hass: HomeAssistant, entity_id: str):
+    """Map any of a board's entity ids back to its (entry, coordinator)."""
+    ent = er.async_get(hass).async_get(entity_id)
+    if ent is None or ent.platform != DOMAIN:
+        return None
+    for entry, coord in _iter_coordinators(hass):
+        if ent.unique_id.startswith(f"{coord.hub.entry_id}_{coord.address}_"):
+            return entry, coord
+    return None
+
+
+def _referenced_coordinators(hass: HomeAssistant, call: ServiceCall):
+    """Resolve a service call's target into a deduplicated list of (entry, coord)."""
+    selected = async_extract_referenced_entity_ids(hass, call)
+    entity_ids = selected.referenced | selected.indirectly_referenced
+    found: dict[int, tuple] = {}
+    for eid in entity_ids:
+        match = _coordinator_for_entity(hass, eid)
+        if match is not None:
+            found[id(match[1])] = match
+    return list(found.values())
 
 
 def async_setup_services(hass: HomeAssistant) -> None:
@@ -141,15 +151,14 @@ def async_setup_services(hass: HomeAssistant) -> None:
         await asyncio.gather(*(_one(coord, ch) for coord, ch in targets))
 
     async def _async_all(call: ServiceCall, on: bool) -> None:
-        device_ids = call.data.get("device_id", [])
-        coords = {coord for _entry, coord in _coordinators_for_devices(hass, device_ids)}
+        coords = [coord for _entry, coord in _referenced_coordinators(hass, call)]
         if not coords:
             raise ServiceValidationError("No Waveshare relay boards in the target")
         await asyncio.gather(*(coord.async_set_all(on) for coord in coords))
 
     async def _async_set_address(call: ServiceCall) -> None:
         new_address: int = call.data[ATTR_NEW_ADDRESS]
-        pairs = list(_coordinators_for_devices(hass, call.data.get("device_id", [])))
+        pairs = _referenced_coordinators(hass, call)
         if len(pairs) != 1:
             raise ServiceValidationError(
                 "Target exactly one relay board when changing its address"
@@ -165,7 +174,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     async def _async_set_baud(call: ServiceCall) -> None:
         bps: int = call.data[ATTR_BAUD_RATE]
-        pairs = list(_coordinators_for_devices(hass, call.data.get("device_id", [])))
+        pairs = _referenced_coordinators(hass, call)
         if len(pairs) != 1:
             raise ServiceValidationError(
                 "Target exactly one relay board when changing the baud rate"
