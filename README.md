@@ -53,39 +53,98 @@ restart HA, and add the integration as above.
 ## Home Assistant in Docker (no USB access)
 
 If HA runs in Docker it usually can't see the USB adapter — and **Docker Desktop on macOS
-can't pass USB through at all**. Bridge the serial port onto the network and use the
-integration's **Network (TCP)** transport.
+can't pass USB through at all**. Put the bus on the network and use the integration's
+**Network (TCP)** transport.
 
-**Quickest: `socat` on the machine with the adapter** (e.g. your Mac):
+### Recommended: the bundled Modbus-TCP gateway
+
+Run [`tools/modbus_gateway.py`](tools/modbus_gateway.py) on the machine that has the USB
+adapter. It speaks **Modbus TCP (MBAP)** to HA and does proper RTU framing on the serial
+side — reliable, unlike a transparent `socat` pipe (see the caveat below). Only needs
+`pyserial`:
 
 ```sh
-brew install socat   # macOS;  apt install socat on Linux
-socat -d -d TCP-LISTEN:5020,reuseaddr,fork,nodelay \
-  /dev/cu.usbserial-AQ025HGO,raw,echo=0,ispeed=9600,ospeed=9600,cs8,parenb=0,cstopb=0,clocal=1,crtscts=0
+pip install pyserial
+python3 tools/modbus_gateway.py --port /dev/cu.usbserial-AQ025HGO --baud 9600 --listen 5020
+# Linux: --port /dev/ttyUSB0
 ```
 
-> Use the device path directly (not `FILE:`) and `ispeed/ospeed` for the baud — recent
-> socat (1.8.x) rejects the older `FILE:…,b9600` form, and the failure shows up only in
-> the forked child when a client connects (`unknown option "b9600"`).
-
-Then add the integration → **Network (TCP)** with:
+Then add the integration → **Network (TCP)**:
 
 | Field | Value |
 | --- | --- |
-| **Host** | `host.docker.internal` (HA-in-Docker → the Docker host). On Linux Docker, the host's LAN IP. |
+| **Host** | `host.docker.internal` (HA-in-Docker → the Docker host). On Linux Docker, the host's LAN IP, or add `--add-host=host.docker.internal:host-gateway` to the container. |
 | **TCP port** | `5020` |
-| **Framing** | **RTU over TCP** |
+| **Framing** | **Modbus TCP** |
 
-`socat` sets the baud (`b9600`), so the board must already be at that rate. Keep the
-`socat` process running (run it under `launchd`/`systemd`, or use **`ser2net`** for a
-permanent service).
+**Keep it running across reboots:**
 
-**Cleaner long-term:** a hardware **RS485-to-Ethernet gateway** puts the bus on the LAN with
-no host dependency — point the Network transport at its IP (RTU over TCP for transparent
-mode, Modbus TCP for an MBAP gateway).
+*macOS (launchd)* — create `~/Library/LaunchAgents/com.local.waveshare-gateway.plist`:
 
-> The [bench provisioning tool](#bench-provisioning-tool-recommended-before-install) runs
-> natively on the Mac and talks to the USB adapter directly — no bridge needed for it.
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.local.waveshare-gateway</string>
+  <key>ProgramArguments</key><array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>/ABSOLUTE/PATH/oselia-waveshare-relay-ha/tools/modbus_gateway.py</string>
+    <string>--port</string><string>/dev/cu.usbserial-AQ025HGO</string>
+    <string>--baud</string><string>9600</string>
+    <string>--listen</string><string>5020</string>
+  </array>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/modbus-gateway.log</string>
+  <key>StandardErrorPath</key><string>/tmp/modbus-gateway.log</string>
+</dict></plist>
+```
+```sh
+launchctl load -w ~/Library/LaunchAgents/com.local.waveshare-gateway.plist
+launchctl list | grep waveshare        # 2nd column 0 = running
+# stop/remove later: launchctl unload -w ~/Library/LaunchAgents/com.local.waveshare-gateway.plist
+```
+
+*Raspberry Pi OS / Linux (systemd)* — `/etc/systemd/system/waveshare-gateway.service`:
+
+```ini
+[Unit]
+Description=Waveshare Modbus TCP gateway
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/oselia-waveshare-relay-ha/tools/modbus_gateway.py \
+  --port /dev/serial/by-id/usb-FTDI-if00-port0 --baud 9600 --listen 5020
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+```
+```sh
+sudo apt install python3-serial
+sudo systemctl enable --now waveshare-gateway
+journalctl -u waveshare-gateway -f
+```
+
+> On a Pi, prefer a stable `/dev/serial/by-id/...` path over `/dev/ttyUSB0` (which can
+> renumber). If HA itself runs in Docker **on the Pi**, you could instead pass the device
+> straight in with `--device=/dev/ttyUSB0` and use the **Serial** transport — no gateway
+> needed. The gateway is for when HA can't see the USB port.
+
+### Why not plain `socat`?
+
+A transparent `socat TCP-LISTEN … FILE:/dev/tty…` pipe forwards **raw RTU over TCP**. RTU
+has no length field — it delimits frames by inter-byte timing gaps, which TCP destroys — so
+clients receive fragmented frames and reads fail intermittently (with pymodbus you'll see
+`recv: … extra data` / `No response received after 3 retries`). The gateway above avoids
+this entirely by using length-delimited MBAP on the wire. (A hardware RS485-to-Ethernet
+gateway in **Modbus-TCP** mode works the same way; one in transparent mode has the RTU
+fragmentation problem — point the integration at **RTU over TCP** only for those and
+expect to tune timing.)
+
+> The [bench provisioning tool](#bench-provisioning-tool-recommended-before-install) talks
+> to the USB adapter directly — no gateway needed for it. Only one process can own the
+> serial port at a time, so **stop the gateway before bench-testing** (and vice-versa).
 
 ## Entities (per board)
 

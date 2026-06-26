@@ -1,3 +1,14 @@
+# Tools
+
+Two standalone helpers (only need `pyserial`):
+
+- **`waveshare_provision.py`** — bench CLI to preconfigure/test a board (below).
+- **`modbus_gateway.py`** — a Modbus-TCP→RTU gateway so Home Assistant in Docker can
+  reach the bus over the network (see *Modbus-TCP gateway* at the bottom).
+
+> Only one process can own the serial port at a time. **Stop the gateway before using the
+> bench tool**, and vice-versa.
+
 # Bench provisioning tool
 
 `waveshare_provision.py` — a standalone CLI to **preconfigure and test a Waveshare
@@ -60,9 +71,31 @@ Global options: `-p/--port`, `-b/--baud` (default 9600), `-a/--address` (default
 ## Notes
 
 - **One board at a time** when setting addresses — `set-address` and `discover` rely on a
-  single device answering.
+  single device answering. `set-address` verifies the change via the **broadcast**
+  address-read, so it works even on firmware that won't answer the address register at its
+  own unit id.
 - Relay numbers are **1-based** on the CLI (Relay 1 = coil 0 on the wire).
+- Some firmware revisions don't answer the **version register** (`0x2000`); `info` then
+  shows `SW version: unknown` — harmless.
 - The protocol is documented in
   [Waveshare's Protocol Manual](https://www.waveshare.com/wiki/Protocol_Manual_of_Modbus_RTU_Relay);
   this tool builds the Modbus RTU frames directly (CRC included) so it can use the
   broadcast address-read and timed-flash commands the HA integration doesn't.
+
+# Modbus-TCP gateway
+
+`modbus_gateway.py` — run it on the machine with the USB/RS485 adapter to expose the bus
+as **Modbus TCP** for Home Assistant in Docker (which can't see the USB port):
+
+```sh
+python3 modbus_gateway.py --port /dev/cu.usbserial-AQ025HGO --baud 9600 --listen 5020
+#   Linux: --port /dev/ttyUSB0  (or a stable /dev/serial/by-id/... path)
+```
+
+Then add the HA integration as **Network (TCP)** → host = `host.docker.internal` (or the
+host's LAN IP), port `5020`, framing **"Modbus TCP"**.
+
+It speaks length-delimited MBAP on the network side and does proper RTU framing on the
+serial side, so it doesn't suffer the frame-fragmentation a transparent `socat` pipe does.
+See the main README's *Home Assistant in Docker* section for launchd/systemd unit files to
+keep it running across reboots.

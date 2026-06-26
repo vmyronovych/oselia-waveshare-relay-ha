@@ -95,11 +95,19 @@ class Board:
 
     def _txn(self, address: int, func: int, payload: bytes, resp_len: int) -> bytes:
         """Send one request, return the response payload bytes (after addr+func,
-        before CRC). `resp_len` is the full expected frame length."""
-        self._ser.reset_input_buffer()
-        self._ser.write(_frame(address, func, payload))
-        # Read the expected frame; allow a 5-byte exception frame to short-circuit.
-        raw = self._ser.read(resp_len)
+        before CRC). `resp_len` is the full expected frame length.
+
+        Reads (0x01/0x03) are retried once: the first transaction right after the USB
+        adapter is opened can be dropped while the line settles. Writes are not retried
+        (a resent toggle would undo itself)."""
+        attempts = 2 if func in (0x01, 0x03) else 1
+        raw = b""
+        for _ in range(attempts):
+            self._ser.reset_input_buffer()
+            self._ser.write(_frame(address, func, payload))
+            raw = self._ser.read(resp_len)
+            if len(raw) >= 5:
+                break
         if len(raw) < 5:
             raise ModbusError(
                 f"no/short reply ({len(raw)} bytes) -- wrong address, baud, port, "
@@ -163,11 +171,15 @@ def cmd_info(args) -> int:
     board = _open(args)
     try:
         addr = board.read_register(REG_ADDRESS, args.address)
-        ver = board.read_register(REG_BAUD, args.address)
+        try:
+            ver = f"v{board.read_register(REG_BAUD, args.address) / 100:.2f}"
+        except ModbusError:
+            # Some firmware revisions don't answer the version register.
+            ver = "unknown"
     finally:
         board.close()
     print(f"Address      : {addr}")
-    print(f"SW version   : v{ver / 100:.2f}")
+    print(f"SW version   : {ver}")
     return 0
 
 
@@ -284,13 +296,17 @@ def cmd_set_address(args) -> int:
     try:
         board.write_register(REG_ADDRESS, args.new_address, current)
         time.sleep(0.1)
-        check = board.read_register(REG_ADDRESS, args.new_address)
+        # Verify via the broadcast address-read (works with one board on the bus) so the
+        # check doesn't depend on the new address being right -- the reply's address
+        # byte tells us what the board actually answers to now.
+        check = board.read_address_broadcast()
     finally:
         board.close()
     if check != args.new_address:
-        print(f"WARNING: read back address {check}, expected {args.new_address}")
+        print(f"WARNING: board now answers at address {check}, expected "
+              f"{args.new_address}")
         return 1
-    print(f"Address set: {current} -> {args.new_address} (verified)")
+    print(f"Address set: {current} -> {args.new_address} (verified via broadcast)")
     return 0
 
 
