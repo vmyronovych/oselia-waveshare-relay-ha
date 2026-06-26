@@ -92,6 +92,10 @@ Leave it running. Make it permanent so it survives reboots:
 
 ## 5. Install the integration (HACS)
 
+- [ ] **No HACS yet?** Install it first (one-time) — see
+      [README → Don't have HACS yet?](README.md#dont-have-hacs-yet). In short, on a Docker
+      host: `docker exec -it homeassistant bash -c "wget -O - https://get.hacs.xyz | bash -"`,
+      restart HA, add the **HACS** integration, authorize via GitHub.
 - [ ] HACS → ⋮ → **Custom repositories** → `https://github.com/vmyronovych/oselia-waveshare-relay-ha`, category **Integration**.
 - [ ] Install **Waveshare Modbus RTU Relay** → **restart Home Assistant**.
 
