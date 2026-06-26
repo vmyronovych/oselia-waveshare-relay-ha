@@ -60,9 +60,13 @@ integration's **Network (TCP)** transport.
 
 ```sh
 brew install socat   # macOS;  apt install socat on Linux
-socat -d -d TCP-LISTEN:5020,reuseaddr,fork \
-  FILE:/dev/cu.usbserial-AQ025HGO,raw,echo=0,b9600
+socat -d -d TCP-LISTEN:5020,reuseaddr,fork,nodelay \
+  /dev/cu.usbserial-AQ025HGO,raw,echo=0,ispeed=9600,ospeed=9600,cs8,parenb=0,cstopb=0,clocal=1,crtscts=0
 ```
+
+> Use the device path directly (not `FILE:`) and `ispeed/ospeed` for the baud — recent
+> socat (1.8.x) rejects the older `FILE:…,b9600` form, and the failure shows up only in
+> the forked child when a client connects (`unknown option "b9600"`).
 
 Then add the integration → **Network (TCP)** with:
 
