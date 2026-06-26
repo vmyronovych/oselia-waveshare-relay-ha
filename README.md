@@ -19,6 +19,9 @@ no SSCOM or Modbus Poll needed).
 > wall-switch gateway: a bundled **blueprint** maps any OSELIA button gesture
 > (single / double / long) to any relay action in two clicks.
 
+> 📋 **Deploying at a new site?** Follow [**ROLLOUT.md**](ROLLOUT.md) — a start-to-finish
+> checklist (bench-provision addresses → wire the bus → bridge/serial → HA → wire buttons).
+
 ## Install
 
 ### HACS (recommended)
@@ -165,7 +168,7 @@ the bus. Writes update the UI instantly and re-read to confirm.
 | Service | Purpose |
 | --- | --- |
 | `waveshare_relay.pulse` | **Momentary** press — turn a relay on for *N* seconds then off (or `invert` for NC wiring). Perfect for gates, door strikes, garage doors. |
-| `waveshare_relay.all_on` / `all_off` | All relays on/off (device target) for automations. |
+| `waveshare_relay.all_on` / `all_off` | All relays on/off in one bus frame; target any switch on the board. |
 | `waveshare_relay.set_device_address` | **Commission a board's Modbus address from HA.** Put one board on the bus, target it, give a new address — the integration writes it, updates its own config, and reconnects on the new address. |
 | `waveshare_relay.set_baud_rate` | Change a board's RS485 baud rate (set every board on the bus to match). |
 
