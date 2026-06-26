@@ -95,11 +95,28 @@ async def async_unload_entry(hass: HomeAssistant, entry: WaveshareConfigEntry) -
 async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: WaveshareConfigEntry, device: DeviceEntry
 ) -> bool:
-    """Allow deleting a board's device from the UI once it's no longer configured."""
-    configured = {
-        f"{entry.entry_id}_{dev[CONF_ADDRESS]}"
-        for dev in entry.data.get(CONF_DEVICES, [])
-    }
-    return not any(
-        ident in configured for domain, ident in device.identifiers if domain == DOMAIN
-    )
+    """Allow deleting a board's device from the device page.
+
+    Deleting the device drops that board from the bus config and reloads, so it isn't
+    re-created. (Removing several at once is still easier via Configure -> Remove a
+    relay board.) A device we don't recognise is always allowed to be removed.
+    """
+    prefix = f"{entry.entry_id}_"
+    address: int | None = None
+    for domain, ident in device.identifiers:
+        if domain == DOMAIN and ident.startswith(prefix):
+            try:
+                address = int(ident[len(prefix):])
+            except ValueError:
+                address = None
+            break
+    if address is None:
+        return True  # unknown / stale device -> let the UI remove it
+
+    devices = entry.data.get(CONF_DEVICES, [])
+    remaining = [d for d in devices if d[CONF_ADDRESS] != address]
+    if len(remaining) != len(devices):
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_DEVICES: remaining}
+        )  # triggers a reload via the update listener
+    return True
