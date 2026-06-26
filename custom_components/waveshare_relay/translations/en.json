@@ -1,0 +1,111 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Waveshare relay bus",
+        "description": "Select the USB / RS485 serial adapter your relay boards are wired to, and the bus baud rate (all boards on one bus share a baud rate).",
+        "data": {
+          "port": "Serial port",
+          "baudrate": "Baud rate"
+        }
+      },
+      "device": {
+        "title": "Add a relay board",
+        "description": "Enter the Modbus address of the board (factory default is 1) and how many relay channels it has. The board is tested before it is added.",
+        "data": {
+          "address": "Modbus address",
+          "name": "Name",
+          "channels": "Relay channels"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not open that serial port.",
+      "no_response": "No relay board answered at that address. Check the wiring, address, and baud rate."
+    },
+    "abort": {
+      "already_configured": "This serial port is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Waveshare relays",
+        "menu_options": {
+          "add_device": "Add a relay board",
+          "remove_device": "Remove a relay board",
+          "settings": "Bus settings"
+        }
+      },
+      "add_device": {
+        "title": "Add a relay board",
+        "description": "Add another board on the same bus. Each board needs a unique Modbus address.",
+        "data": {
+          "address": "Modbus address",
+          "name": "Name",
+          "channels": "Relay channels"
+        }
+      },
+      "remove_device": {
+        "title": "Remove relay boards",
+        "data": {
+          "remove": "Boards to remove"
+        }
+      },
+      "settings": {
+        "title": "Bus settings",
+        "data": {
+          "scan_interval": "Poll interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "no_response": "No relay board answered at that address.",
+      "duplicate_address": "A board with that address is already configured."
+    }
+  },
+  "services": {
+    "pulse": {
+      "name": "Pulse relay",
+      "description": "Momentarily switch one or more relays, then return them to rest.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "How long to hold the active state, in seconds."
+        },
+        "invert": {
+          "name": "Invert",
+          "description": "Pulse OFF then back ON instead of ON then OFF."
+        }
+      }
+    },
+    "all_on": {
+      "name": "All relays on",
+      "description": "Switch every relay on a board on in a single bus transaction."
+    },
+    "all_off": {
+      "name": "All relays off",
+      "description": "Switch every relay on a board off in a single bus transaction."
+    },
+    "set_device_address": {
+      "name": "Set device (Modbus) address",
+      "description": "Write a board's Modbus address (one board on the bus at a time).",
+      "fields": {
+        "new_address": {
+          "name": "New address",
+          "description": "New Modbus slave address (1-255)."
+        }
+      }
+    },
+    "set_baud_rate": {
+      "name": "Set baud rate",
+      "description": "Write a board's RS485 baud rate.",
+      "fields": {
+        "baud_rate": {
+          "name": "Baud rate",
+          "description": "New serial baud rate."
+        }
+      }
+    }
+  }
+}

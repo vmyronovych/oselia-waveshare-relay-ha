@@ -1,0 +1,14 @@
+{
+  "domain": "waveshare_relay",
+  "name": "Waveshare Modbus RTU Relay",
+  "codeowners": ["@vmyronovych"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/vmyronovych/oselia-waveshare-relay-ha",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/vmyronovych/oselia-waveshare-relay-ha/issues",
+  "loggers": ["pymodbus"],
+  "requirements": ["pymodbus>=3.6.0", "pyserial>=3.5"],
+  "version": "0.1.0"
+}

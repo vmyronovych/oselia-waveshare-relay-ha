@@ -1,0 +1,85 @@
+"""Constants for the Waveshare Modbus RTU Relay integration.
+
+The Modbus wire contract here matches Waveshare's "Protocol Manual of Modbus RTU
+Relay" (https://www.waveshare.com/wiki/Protocol_Manual_of_Modbus_RTU_Relay) and works
+for the whole relay family (4/8/16/32-ch) since they share one protocol:
+
+  - Read relay states  : function 0x01 (read coils) from coil 0x0000, count = channels
+  - Set a single relay : function 0x05 (write coil) at coil <channel> -> 0xFF00 / 0x0000
+  - Set ALL relays     : function 0x05 (write coil) at coil 0x00FF -> 0xFFFF / 0x0000
+  - Set device address : function 0x06 (write register) at 0x4000  (range 1..255)
+  - Set baud rate      : function 0x06 (write register) at 0x2000  (code, see BAUD_RATES)
+  - Read sw version    : function 0x03 (read register)  at 0x2000  (value / 100 = vX.YZ)
+  - Read device address: function 0x03 (read register)  at 0x4000  (broadcast on addr 0)
+"""
+from __future__ import annotations
+
+from homeassistant.const import Platform
+
+DOMAIN = "waveshare_relay"
+MANUFACTURER = "Waveshare"
+DEFAULT_MODEL = "Modbus RTU Relay"
+
+# --- config-entry / option keys ---
+CONF_PORT = "port"
+CONF_BAUDRATE = "baudrate"
+CONF_DEVICES = "devices"          # list[ {address, name, channels} ] on the bus
+CONF_ADDRESS = "address"          # Modbus slave address of one board
+CONF_NAME = "name"
+CONF_CHANNELS = "channels"
+CONF_SCAN_INTERVAL = "scan_interval"
+
+DEFAULT_BAUDRATE = 9600           # Waveshare factory default
+DEFAULT_ADDRESS = 1               # Waveshare factory default
+DEFAULT_CHANNELS = 8              # the (B) variant
+DEFAULT_SCAN_INTERVAL = 10        # seconds between coil-state polls
+MIN_ADDRESS = 1
+MAX_ADDRESS = 255
+
+CHANNEL_OPTIONS = [4, 8, 16, 32]
+
+# baud-rate register code (REG_BAUD) -> bits per second, per the protocol manual.
+BAUD_RATES: dict[int, int] = {
+    0: 4800,
+    1: 9600,
+    2: 19200,
+    3: 38400,
+    4: 57600,
+    5: 115200,
+    6: 128000,
+    7: 256000,
+}
+# inverse, for the config flow / service (bps -> code)
+BAUD_CODES: dict[int, int] = {bps: code for code, bps in BAUD_RATES.items()}
+
+# --- Modbus addresses (see module docstring) ---
+COIL_FIRST = 0x0000               # first relay coil
+COIL_ALL = 0x00FF                 # write-only "all relays" coil
+REG_BAUD = 0x2000                 # baud-rate register / software-version register
+REG_ADDRESS = 0x4000             # device-address register
+BROADCAST_ADDRESS = 0x00          # read a lone device's address with this
+
+PLATFORMS = [
+    Platform.SWITCH,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+    Platform.BUTTON,
+]
+
+# --- services ---
+SERVICE_PULSE = "pulse"
+SERVICE_ALL_ON = "all_on"
+SERVICE_ALL_OFF = "all_off"
+SERVICE_SET_ADDRESS = "set_device_address"
+SERVICE_SET_BAUD_RATE = "set_baud_rate"
+
+ATTR_DURATION = "duration"
+ATTR_INVERT = "invert"
+ATTR_NEW_ADDRESS = "new_address"
+ATTR_BAUD_RATE = "baud_rate"
+
+DEFAULT_PULSE_DURATION = 0.5      # seconds
+
+# --- dispatcher signals ---
+# Fired (per entry) when the bus link goes up/down -- refreshes availability entities.
+SIGNAL_CONNECTION = DOMAIN + "_connection_{}"

@@ -1,0 +1,90 @@
+pulse:
+  name: Pulse relay
+  description: >-
+    Momentarily switch one or more relays, then return them to rest. Great for gates,
+    door strikes, garage doors, or any "press" input. Timed in software by Home
+    Assistant.
+  target:
+    entity:
+      integration: waveshare_relay
+      domain: switch
+  fields:
+    duration:
+      name: Duration
+      description: How long to hold the active state, in seconds.
+      default: 0.5
+      selector:
+        number:
+          min: 0.05
+          max: 3600
+          step: 0.05
+          unit_of_measurement: s
+          mode: box
+    invert:
+      name: Invert
+      description: >-
+        Pulse OFF then back ON instead of ON then OFF (for wiring that idles closed /
+        uses the NC contact).
+      default: false
+      selector:
+        boolean:
+
+all_on:
+  name: All relays on
+  description: Switch every relay on a board on in a single bus transaction.
+  target:
+    device:
+      integration: waveshare_relay
+
+all_off:
+  name: All relays off
+  description: Switch every relay on a board off in a single bus transaction.
+  target:
+    device:
+      integration: waveshare_relay
+
+set_device_address:
+  name: Set device (Modbus) address
+  description: >-
+    Write a board's Modbus address. Only ONE board may be on the bus while doing this
+    (the broadcast/old address is used). The integration updates its own config and
+    reconnects on the new address automatically.
+  target:
+    device:
+      integration: waveshare_relay
+  fields:
+    new_address:
+      name: New address
+      description: New Modbus slave address (1-255). Must be unique on the bus.
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 255
+          step: 1
+          mode: box
+
+set_baud_rate:
+  name: Set baud rate
+  description: >-
+    Write a board's RS485 baud rate. EVERY board on the same bus must use the same
+    baud rate, so set them all. The integration reconnects at the new rate.
+  target:
+    device:
+      integration: waveshare_relay
+  fields:
+    baud_rate:
+      name: Baud rate
+      description: New serial baud rate.
+      required: true
+      selector:
+        select:
+          options:
+            - "4800"
+            - "9600"
+            - "19200"
+            - "38400"
+            - "57600"
+            - "115200"
+            - "128000"
+            - "256000"
