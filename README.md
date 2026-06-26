@@ -26,10 +26,17 @@ no SSCOM or Modbus Poll needed).
 
 ### HACS (recommended)
 
-1. HACS → ⋮ → **Custom repositories**.
-2. Repository: `https://github.com/vmyronovych/oselia-waveshare-relay-ha`, category **Integration**.
-3. Install **Waveshare Modbus RTU Relay**, then restart Home Assistant.
-4. **Settings → Devices & Services → Add integration → Waveshare Modbus RTU Relay**.
+1. In Home Assistant, open **HACS** (sidebar) → top-right **⋮** → **Custom repositories**.
+2. Paste `https://github.com/vmyronovych/oselia-waveshare-relay-ha`, set category **Integration**, click **Add**, then close the dialog.
+3. **Download the integration into Home Assistant:**
+   1. In HACS, search for **Waveshare Modbus RTU Relay** and open its page (it shows up after step 2).
+   2. Click **Download** (bottom-right), keep the latest version, and confirm **Download**.
+      This copies the files into `config/custom_components/waveshare_relay` — it does **not** load them yet.
+   3. **Restart Home Assistant** so it loads the new integration:
+      **Settings → System → ⏻ (top-right) → Restart Home Assistant**
+      (or Developer Tools → **Actions** → run `homeassistant.restart`).
+4. After the restart: **Settings → Devices & Services → Add integration**, search
+   **Waveshare Modbus RTU Relay**.
 
 #### Don't have HACS yet?
 
