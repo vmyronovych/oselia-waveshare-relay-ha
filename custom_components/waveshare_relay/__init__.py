@@ -15,13 +15,10 @@ from homeassistant.helpers.device_registry import DeviceEntry
 
 from .const import (
     CONF_ADDRESS,
-    CONF_BAUDRATE,
     CONF_CHANNELS,
     CONF_DEVICES,
     CONF_NAME,
-    CONF_PORT,
     CONF_SCAN_INTERVAL,
-    DEFAULT_BAUDRATE,
     DEFAULT_CHANNELS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -45,17 +42,12 @@ type WaveshareConfigEntry = ConfigEntry[WaveshareData]
 
 async def async_setup_entry(hass: HomeAssistant, entry: WaveshareConfigEntry) -> bool:
     """Open the bus, build a coordinator per configured board, set up platforms."""
-    hub = WaveshareHub(
-        hass,
-        entry_id=entry.entry_id,
-        port=entry.data[CONF_PORT],
-        baudrate=entry.data.get(CONF_BAUDRATE, DEFAULT_BAUDRATE),
-    )
+    hub = WaveshareHub(hass, entry_id=entry.entry_id, cfg=dict(entry.data))
     await hub.async_connect()
     if not hub.connected:
-        # The serial port couldn't be opened (adapter unplugged?). Retry later rather
-        # than fail hard -- HA calls setup again with backoff.
-        raise ConfigEntryNotReady(f"Could not open serial port {hub.port}")
+        # The link couldn't be opened (adapter unplugged / bridge down?). Retry later
+        # rather than fail hard -- HA calls setup again with backoff.
+        raise ConfigEntryNotReady(f"Could not open bus {hub.label}")
 
     data = WaveshareData(hub=hub)
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)

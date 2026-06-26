@@ -1,9 +1,10 @@
 """Config + options flow.
 
-User flow: pick the USB/RS485 serial port + bus baud rate, then add the first relay
-board (Modbus address, name, channel count). The bus link and the board are both
-probed before the entry is created, so a wrong port/address/baud fails here with a
-clear reason instead of producing a dead device.
+User flow: choose the transport -- **Serial** (USB/RS485 adapter on the HA host) or
+**Network/TCP** (a socat/ser2net bridge or an RS485-to-Ethernet gateway, for when HA
+can't see the USB port, e.g. Docker Desktop on macOS) -- then add the first relay board
+(Modbus address, name, channel count). The link and the board are both probed before the
+entry is created, so a wrong port/host/address/baud fails here with a clear reason.
 
 Options flow: add or remove boards on the same bus, and tune the poll interval.
 """
@@ -13,7 +14,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from pymodbus.client import AsyncModbusSerialClient
 
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -32,18 +32,28 @@ from .const import (
     CONF_BAUDRATE,
     CONF_CHANNELS,
     CONF_DEVICES,
+    CONF_FRAMER,
+    CONF_HOST,
     CONF_NAME,
     CONF_PORT,
     CONF_SCAN_INTERVAL,
+    CONF_TCP_PORT,
+    CONF_TYPE,
     DEFAULT_ADDRESS,
     DEFAULT_BAUDRATE,
     DEFAULT_CHANNELS,
+    DEFAULT_FRAMER,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TCP_PORT,
     DOMAIN,
+    FRAMER_RTU,
+    FRAMER_SOCKET,
     MAX_ADDRESS,
     MIN_ADDRESS,
+    TYPE_SERIAL,
+    TYPE_TCP,
 )
-from .hub import _UNIT_KW
+from .hub import build_client, describe, unique_id_for
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +70,7 @@ async def _list_ports(hass) -> list[selector.SelectOptionDict]:
     ]
 
 
-def _port_schema(port_options: list[selector.SelectOptionDict]) -> vol.Schema:
+def _serial_schema(port_options: list[selector.SelectOptionDict]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_PORT): selector.SelectSelector(
@@ -80,6 +90,31 @@ def _port_schema(port_options: list[selector.SelectOptionDict]) -> vol.Schema:
     )
 
 
+def _network_schema() -> vol.Schema:
+    return vol.Schema(
+        {
+            vol.Required(CONF_HOST): str,
+            vol.Required(CONF_TCP_PORT, default=DEFAULT_TCP_PORT): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=65535, step=1, mode="box")
+            ),
+            vol.Required(CONF_FRAMER, default=DEFAULT_FRAMER): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        selector.SelectOptionDict(
+                            value=FRAMER_RTU,
+                            label="RTU over TCP (socat / transparent gateway)",
+                        ),
+                        selector.SelectOptionDict(
+                            value=FRAMER_SOCKET, label="Modbus TCP (MBAP gateway)"
+                        ),
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+    )
+
+
 def _device_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     d = defaults or {}
     return vol.Schema(
@@ -91,9 +126,7 @@ def _device_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     min=MIN_ADDRESS, max=MAX_ADDRESS, step=1, mode="box"
                 )
             ),
-            vol.Required(
-                CONF_NAME, default=d.get(CONF_NAME, "Relay board")
-            ): str,
+            vol.Required(CONF_NAME, default=d.get(CONF_NAME, "Relay board")): str,
             vol.Required(
                 CONF_CHANNELS, default=str(d.get(CONF_CHANNELS, DEFAULT_CHANNELS))
             ): selector.SelectSelector(
@@ -106,22 +139,24 @@ def _device_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     )
 
 
-async def _test_port(port: str, baud: int) -> bool:
-    client = AsyncModbusSerialClient(port=port, baudrate=baud, timeout=2)
+async def _test_connection(cfg: dict) -> bool:
+    client = build_client(cfg)
     try:
         return bool(await client.connect())
-    except Exception:  # pragma: no cover - driver/OS errors
+    except Exception:  # pragma: no cover - driver/OS/socket errors
         return False
     finally:
         client.close()
 
 
-async def _probe_board(port: str, baud: int, address: int, channels: int) -> bool:
-    client = AsyncModbusSerialClient(port=port, baudrate=baud, timeout=2)
+async def _probe_board(cfg: dict, address: int, channels: int) -> bool:
+    client = build_client(cfg)
     try:
         if not await client.connect():
             return False
-        rr = await client.read_coils(COIL_FIRST, count=channels, **{_UNIT_KW: address})
+        rr = await client.read_coils(
+            COIL_FIRST, count=channels, **{_unit_kw(): address}
+        )
         return rr is not None and not rr.isError()
     except Exception:
         return False
@@ -129,14 +164,19 @@ async def _probe_board(port: str, baud: int, address: int, channels: int) -> boo
         client.close()
 
 
+def _unit_kw() -> str:
+    from .hub import _UNIT_KW
+
+    return _UNIT_KW
+
+
 class WaveshareConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Set up one RS485 bus and its first relay board."""
+    """Set up one bus (serial or TCP) and its first relay board."""
 
     VERSION = 1
 
     def __init__(self) -> None:
-        self._port: str | None = None
-        self._baud: int = DEFAULT_BAUDRATE
+        self._transport: dict[str, Any] = {}
 
     @staticmethod
     @callback
@@ -146,23 +186,55 @@ class WaveshareConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        return self.async_show_menu(
+            step_id="user", menu_options=["serial", "network"]
+        )
+
+    async def async_step_serial(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            port = user_input[CONF_PORT]
-            baud = int(user_input[CONF_BAUDRATE])
-            await self.async_set_unique_id(port)
+            cfg = {
+                CONF_TYPE: TYPE_SERIAL,
+                CONF_PORT: user_input[CONF_PORT],
+                CONF_BAUDRATE: int(user_input[CONF_BAUDRATE]),
+            }
+            await self.async_set_unique_id(unique_id_for(cfg))
             self._abort_if_unique_id_configured()
-            if not await _test_port(port, baud):
+            if not await _test_connection(cfg):
                 errors["base"] = "cannot_connect"
             else:
-                self._port = port
-                self._baud = baud
+                self._transport = cfg
                 return await self.async_step_device()
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=_port_schema(await _list_ports(self.hass)),
+            step_id="serial",
+            data_schema=_serial_schema(await _list_ports(self.hass)),
             errors=errors,
+        )
+
+    async def async_step_network(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            cfg = {
+                CONF_TYPE: TYPE_TCP,
+                CONF_HOST: user_input[CONF_HOST],
+                CONF_TCP_PORT: int(user_input[CONF_TCP_PORT]),
+                CONF_FRAMER: user_input[CONF_FRAMER],
+            }
+            await self.async_set_unique_id(unique_id_for(cfg))
+            self._abort_if_unique_id_configured()
+            if not await _test_connection(cfg):
+                errors["base"] = "cannot_connect"
+            else:
+                self._transport = cfg
+                return await self.async_step_device()
+
+        return self.async_show_form(
+            step_id="network", data_schema=_network_schema(), errors=errors
         )
 
     async def async_step_device(
@@ -172,14 +244,13 @@ class WaveshareConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             address = int(user_input[CONF_ADDRESS])
             channels = int(user_input[CONF_CHANNELS])
-            if not await _probe_board(self._port, self._baud, address, channels):
+            if not await _probe_board(self._transport, address, channels):
                 errors["base"] = "no_response"
             else:
                 return self.async_create_entry(
-                    title=f"Waveshare relays ({self._port})",
+                    title=f"Waveshare relays ({describe(self._transport)})",
                     data={
-                        CONF_PORT: self._port,
-                        CONF_BAUDRATE: self._baud,
+                        **self._transport,
                         CONF_DEVICES: [
                             {
                                 CONF_ADDRESS: address,
@@ -217,9 +288,7 @@ class WaveshareOptionsFlow(OptionsFlow):
             existing = {d[CONF_ADDRESS] for d in entry.data.get(CONF_DEVICES, [])}
             if address in existing:
                 errors["base"] = "duplicate_address"
-            elif not await _probe_board(
-                entry.data[CONF_PORT], entry.data[CONF_BAUDRATE], address, channels
-            ):
+            elif not await _probe_board(dict(entry.data), address, channels):
                 errors["base"] = "no_response"
             else:
                 devices = [
@@ -245,8 +314,8 @@ class WaveshareOptionsFlow(OptionsFlow):
         entry = self.config_entry
         devices = entry.data.get(CONF_DEVICES, [])
         if user_input is not None:
-            keep = set(user_input.get("remove", []))
-            remaining = [d for d in devices if str(d[CONF_ADDRESS]) not in keep]
+            drop = set(user_input.get("remove", []))
+            remaining = [d for d in devices if str(d[CONF_ADDRESS]) not in drop]
             self.hass.config_entries.async_update_entry(
                 entry, data={**entry.data, CONF_DEVICES: remaining}
             )

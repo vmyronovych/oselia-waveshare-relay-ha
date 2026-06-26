@@ -21,18 +21,31 @@ MANUFACTURER = "Waveshare"
 DEFAULT_MODEL = "Modbus RTU Relay"
 
 # --- config-entry / option keys ---
-CONF_PORT = "port"
-CONF_BAUDRATE = "baudrate"
+CONF_TYPE = "type"                # transport: TYPE_SERIAL or TYPE_TCP
+CONF_PORT = "port"                # serial: device path
+CONF_BAUDRATE = "baudrate"        # serial: bus baud rate
+CONF_HOST = "host"                # tcp: gateway / bridge host
+CONF_TCP_PORT = "tcp_port"        # tcp: gateway / bridge port
+CONF_FRAMER = "framer"            # tcp: FRAMER_RTU (socat/transparent) or FRAMER_SOCKET
 CONF_DEVICES = "devices"          # list[ {address, name, channels} ] on the bus
 CONF_ADDRESS = "address"          # Modbus slave address of one board
 CONF_NAME = "name"
 CONF_CHANNELS = "channels"
 CONF_SCAN_INTERVAL = "scan_interval"
 
+# transport types
+TYPE_SERIAL = "serial"
+TYPE_TCP = "tcp"
+# tcp framing: RTU-over-TCP (socat raw / "transparent" gateways) vs Modbus-TCP (MBAP)
+FRAMER_RTU = "rtu"
+FRAMER_SOCKET = "socket"
+
 DEFAULT_BAUDRATE = 9600           # Waveshare factory default
 DEFAULT_ADDRESS = 1               # Waveshare factory default
 DEFAULT_CHANNELS = 8              # the (B) variant
 DEFAULT_SCAN_INTERVAL = 10        # seconds between coil-state polls
+DEFAULT_TCP_PORT = 502
+DEFAULT_FRAMER = FRAMER_RTU
 MIN_ADDRESS = 1
 MAX_ADDRESS = 255
 

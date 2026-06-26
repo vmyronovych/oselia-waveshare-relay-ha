@@ -35,15 +35,53 @@ restart HA, and add the integration as above.
 
 ## Setup
 
-1. **Pick the serial port** of your USB/RS485 adapter (auto-detected in a dropdown) and the
-   **bus baud rate** (factory default **9600**). The port is opened to verify it works.
+1. **Choose the transport:**
+   - **Serial** — a USB/RS485 adapter on the HA host. Pick the port (auto-detected) and the
+     **bus baud rate** (factory default **9600**).
+   - **Network (TCP)** — the bus reached over the network. Use this when HA can't see the USB
+     port (see [HA in Docker](#home-assistant-in-docker-no-usb-access) below). Enter the
+     bridge/gateway **host**, **port**, and **framing** (RTU over TCP for socat / transparent
+     gateways; Modbus TCP only for an MBAP gateway).
 2. **Add the first board** — its **Modbus address** (factory default **1**), a **name**, and
    the **channel count** (4/8/16/32). The board is pinged before it's added.
 3. Add more boards on the same bus any time via the integration's **Configure → Add a relay
    board** (each needs a unique address).
 
-> **One config entry = one serial port.** A serial port can only be opened once, so every
-> board on that RS485 bus lives under the same entry, each as its own HA device.
+> **One config entry = one bus.** A serial port (or bridge socket) can only be opened once, so
+> every board on that RS485 bus lives under the same entry, each as its own HA device.
+
+## Home Assistant in Docker (no USB access)
+
+If HA runs in Docker it usually can't see the USB adapter — and **Docker Desktop on macOS
+can't pass USB through at all**. Bridge the serial port onto the network and use the
+integration's **Network (TCP)** transport.
+
+**Quickest: `socat` on the machine with the adapter** (e.g. your Mac):
+
+```sh
+brew install socat   # macOS;  apt install socat on Linux
+socat -d -d TCP-LISTEN:5020,reuseaddr,fork \
+  FILE:/dev/cu.usbserial-AQ025HGO,raw,echo=0,b9600
+```
+
+Then add the integration → **Network (TCP)** with:
+
+| Field | Value |
+| --- | --- |
+| **Host** | `host.docker.internal` (HA-in-Docker → the Docker host). On Linux Docker, the host's LAN IP. |
+| **TCP port** | `5020` |
+| **Framing** | **RTU over TCP** |
+
+`socat` sets the baud (`b9600`), so the board must already be at that rate. Keep the
+`socat` process running (run it under `launchd`/`systemd`, or use **`ser2net`** for a
+permanent service).
+
+**Cleaner long-term:** a hardware **RS485-to-Ethernet gateway** puts the bus on the LAN with
+no host dependency — point the Network transport at its IP (RTU over TCP for transparent
+mode, Modbus TCP for an MBAP gateway).
+
+> The [bench provisioning tool](#bench-provisioning-tool-recommended-before-install) runs
+> natively on the Mac and talks to the USB adapter directly — no bridge needed for it.
 
 ## Entities (per board)
 
@@ -122,7 +160,8 @@ PRs welcome.
 
 ## How it works
 
-- Talks **Modbus RTU** over the serial port via `pymodbus` (async). `local_polling`.
+- Talks **Modbus RTU** via `pymodbus` (async) over either a **serial** port or a **TCP**
+  bridge/gateway (RTU-over-TCP or Modbus-TCP framing). `local_polling`.
 - Reads relay state with **function 0x01** (read coils from `0x0000`), sets relays with
   **0x05** (write coil; `0xFF00`/`0x0000`), all-relays via coil `0x00FF`, and writes the
   address/baud registers (`0x4000` / `0x2000`) with **0x06**. Matches Waveshare's

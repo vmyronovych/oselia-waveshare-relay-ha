@@ -1,14 +1,20 @@
-"""WaveshareHub -- owns the single pymodbus serial connection for one RS485 bus.
+"""WaveshareHub -- owns the single pymodbus connection for one RS485 bus.
 
-A USB-RS485 adapter exposes exactly one serial port, and a serial port can only be
-opened once. So the integration models the *port* as the hub (one config entry) and
-every Modbus address on that bus as a separate Home Assistant device. All transactions
-funnel through one `asyncio.Lock` because RS485 is half-duplex -- only one request may
-be in flight at a time.
+Two transports are supported:
 
-The pymodbus call signature for the unit/slave argument churned across 3.x
-(`slave=` -> `device_id=`); `_UNIT_KW` is resolved once from the live signature so this
-works on whatever pymodbus Home Assistant ships.
+  * **Serial** -- a USB/RS485 adapter on the HA host (one serial port, opened once).
+  * **TCP** -- the bus reached over the network, for when HA can't see the USB port
+    (e.g. Docker Desktop on macOS, which can't pass USB through). Point it at a
+    `socat`/`ser2net` bridge on the machine that has the adapter, or at a hardware
+    RS485-to-Ethernet gateway. Most of those are "transparent" (raw RTU frames over
+    TCP) -> FRAMER_RTU; a true Modbus-TCP gateway uses MBAP -> FRAMER_SOCKET.
+
+Either way a serial port / socket can only host one in-flight request at a time
+(RS485 is half-duplex), so every transaction funnels through one `asyncio.Lock`, and
+each Modbus address on the bus becomes its own Home Assistant device.
+
+The pymodbus call signature for the slave argument churned across 3.x
+(`slave=` -> `device_id=`); `_UNIT_KW` is resolved once from the live signature.
 """
 from __future__ import annotations
 
@@ -16,7 +22,7 @@ import asyncio
 import inspect
 import logging
 
-from pymodbus.client import AsyncModbusSerialClient
+from pymodbus.client import AsyncModbusSerialClient, AsyncModbusTcpClient
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -24,9 +30,21 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from .const import (
     COIL_ALL,
     COIL_FIRST,
+    CONF_BAUDRATE,
+    CONF_FRAMER,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_TCP_PORT,
+    CONF_TYPE,
+    DEFAULT_BAUDRATE,
+    DEFAULT_FRAMER,
+    DEFAULT_TCP_PORT,
+    FRAMER_RTU,
     REG_ADDRESS,
     REG_BAUD,
     SIGNAL_CONNECTION,
+    TYPE_SERIAL,
+    TYPE_TCP,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,35 +66,77 @@ def _resolve_unit_kw() -> str:
 _UNIT_KW = _resolve_unit_kw()
 
 
+def _resolve_framer(name: str):
+    """Map our framer name to whatever this pymodbus version expects (or None)."""
+    try:
+        from pymodbus import FramerType  # pymodbus >= 3.7
+    except ImportError:
+        FramerType = None
+    if FramerType is not None:
+        return FramerType.RTU if name == FRAMER_RTU else FramerType.SOCKET
+    if name == FRAMER_RTU:  # older pymodbus: pass the RTU framer class
+        try:
+            from pymodbus.framer.rtu_framer import ModbusRtuFramer
+
+            return ModbusRtuFramer
+        except ImportError:  # pragma: no cover - very old/new layout
+            return None
+    return None  # socket is the default TCP framer
+
+
+def build_client(cfg: dict, timeout: float = 2):
+    """Build the right pymodbus async client for a transport config dict."""
+    if cfg.get(CONF_TYPE, TYPE_SERIAL) == TYPE_TCP:
+        kwargs = {
+            "host": cfg[CONF_HOST],
+            "port": cfg.get(CONF_TCP_PORT, DEFAULT_TCP_PORT),
+            "timeout": timeout,
+        }
+        framer = _resolve_framer(cfg.get(CONF_FRAMER, DEFAULT_FRAMER))
+        if framer is not None:
+            kwargs["framer"] = framer
+        return AsyncModbusTcpClient(**kwargs)
+    return AsyncModbusSerialClient(
+        port=cfg[CONF_PORT],
+        baudrate=cfg.get(CONF_BAUDRATE, DEFAULT_BAUDRATE),
+        bytesize=8,
+        parity="N",
+        stopbits=1,
+        timeout=timeout,
+    )
+
+
+def describe(cfg: dict) -> str:
+    """Human-readable label for a transport config (for titles / logs / errors)."""
+    if cfg.get(CONF_TYPE, TYPE_SERIAL) == TYPE_TCP:
+        return f"{cfg[CONF_HOST]}:{cfg.get(CONF_TCP_PORT, DEFAULT_TCP_PORT)}"
+    return cfg.get(CONF_PORT, "?")
+
+
+def unique_id_for(cfg: dict) -> str:
+    """Stable config-entry unique id for a transport (one entry per bus)."""
+    return describe(cfg)
+
+
 class ModbusError(Exception):
     """A Modbus transaction failed (no/garbled reply, or an exception response)."""
 
 
 class WaveshareHub:
-    """One serial bus; serializes all Modbus IO and tracks link state."""
+    """One bus; serializes all Modbus IO and tracks link state."""
 
-    def __init__(
-        self, hass: HomeAssistant, entry_id: str, port: str, baudrate: int
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str, cfg: dict) -> None:
         self.hass = hass
         self.entry_id = entry_id
-        self.port = port
-        self.baudrate = baudrate
+        self.label = describe(cfg)
         self.connected = False
         self._lock = asyncio.Lock()
-        self._client = AsyncModbusSerialClient(
-            port=port,
-            baudrate=baudrate,
-            bytesize=8,
-            parity="N",
-            stopbits=1,
-            timeout=2,
-        )
+        self._client = build_client(cfg)
 
     # ---- lifecycle -------------------------------------------------------
     async def async_connect(self) -> None:
-        """Open the port. Never raises: pymodbus retries in the background, and the
-        per-device coordinators will report 'unavailable' until the link comes up."""
+        """Open the link. Never raises: pymodbus retries in the background, and the
+        per-device coordinators report 'unavailable' until the link comes up."""
         async with self._lock:
             await self._async_ensure_connected()
 
@@ -86,14 +146,14 @@ class WaveshareHub:
             self.connected = False
 
     async def _async_ensure_connected(self) -> bool:
-        """(lock held) Make sure the port is open; flip + broadcast link state."""
+        """(lock held) Make sure the link is open; flip + broadcast link state."""
         if self._client.connected:
             self._set_connected(True)
             return True
         try:
             ok = await self._client.connect()
         except Exception as err:  # pragma: no cover - defensive (driver/OS errors)
-            _LOGGER.debug("Waveshare connect to %s failed: %s", self.port, err)
+            _LOGGER.debug("Waveshare connect to %s failed: %s", self.label, err)
             ok = False
         self._set_connected(bool(ok))
         return bool(ok)
@@ -112,7 +172,6 @@ class WaveshareHub:
             self._client.read_coils, COIL_FIRST, count=channels, address_unit=address
         )
         bits = list(rr.bits)[:channels]
-        # pad in case the driver returned fewer than requested (shouldn't happen)
         bits += [False] * (channels - len(bits))
         return bits
 
@@ -174,7 +233,7 @@ class WaveshareHub:
         kwargs[_UNIT_KW] = address_unit
         async with self._lock:
             if not await self._async_ensure_connected():
-                raise ModbusError(f"serial port {self.port} not connected")
+                raise ModbusError(f"bus {self.label} not connected")
             try:
                 result = await fn(*args, **kwargs)
             except Exception as err:  # pymodbus raises ModbusException/ConnectionException

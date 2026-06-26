@@ -3,10 +3,27 @@
     "step": {
       "user": {
         "title": "Waveshare relay bus",
+        "description": "How does Home Assistant reach the relay bus?",
+        "menu_options": {
+          "serial": "Serial (USB/RS485 adapter on this host)",
+          "network": "Network (TCP bridge or RS485-to-Ethernet gateway)"
+        }
+      },
+      "serial": {
+        "title": "Serial bus",
         "description": "Select the USB / RS485 serial adapter your relay boards are wired to, and the bus baud rate (all boards on one bus share a baud rate).",
         "data": {
           "port": "Serial port",
           "baudrate": "Baud rate"
+        }
+      },
+      "network": {
+        "title": "Network bus",
+        "description": "For HA in Docker (e.g. Docker Desktop on macOS, which can't pass USB through): point this at a socat/ser2net bridge on the machine with the adapter, or an RS485-to-Ethernet gateway. Use 'RTU over TCP' for socat/transparent gateways; 'Modbus TCP' only for an MBAP gateway.",
+        "data": {
+          "host": "Host / IP",
+          "tcp_port": "TCP port",
+          "framer": "Framing"
         }
       },
       "device": {
@@ -20,11 +37,11 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not open that serial port.",
+      "cannot_connect": "Could not open the bus. Check the serial port, or the bridge/gateway host and port.",
       "no_response": "No relay board answered at that address. Check the wiring, address, and baud rate."
     },
     "abort": {
-      "already_configured": "This serial port is already set up."
+      "already_configured": "This bus is already set up."
     }
   },
   "options": {
