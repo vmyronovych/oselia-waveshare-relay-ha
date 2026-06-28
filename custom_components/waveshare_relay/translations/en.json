@@ -124,5 +124,11 @@
         }
       }
     }
+  },
+  "issues": {
+    "blueprint_user_modified": {
+      "title": "Customized blueprint not updated",
+      "description": "This update ships a newer version of the blueprint, but Home Assistant kept your edited copy at `{path}` instead of overwriting your changes. To get the latest blueprint, delete that file and restart Home Assistant (it will be re-created from the integration). To keep your changes, copy the blueprint to your own name/path and build automations from that copy — a private copy is never overwritten. Dismiss this once you've decided."
+    }
   }
 }

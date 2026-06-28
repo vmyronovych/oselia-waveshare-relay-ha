@@ -288,11 +288,19 @@ collide. To assign addresses without extra software:
 
 ## Wiring OSELIA buttons → relays
 
-Import the bundled blueprint
-[`blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml`](blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml)
-(HA → Settings → Automations → Blueprints → Import, paste the raw URL). Each automation
+The integration **installs its blueprint for you**: the
+[`OSELIA button → Waveshare relay`](blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml)
+blueprint ships inside the integration and is written to
+`/config/blueprints/automation/waveshare_relay/` on startup — so it's there after install,
+and **updates ride along with the integration** (just update via HACS and restart; no
+re-import). Go straight to **Settings → Automations → Blueprints** to use it. Each automation
 maps **one OSELIA input + gesture → one relay action** (toggle / on / off / pulse). Add as
 many as you like — e.g. *“kitchen switch, double-press → pulse the gate relay.”*
+
+> **Customizing the blueprint?** Edits to the installed file are **not** overwritten on
+> update — the integration detects your changes, keeps them, and raises a Repairs notice
+> that a newer version exists. To run a modified version *and* keep getting updates, copy
+> the blueprint to your own name/path and build automations from that copy.
 
 Because the relays are standard `switch` entities, they also work with any normal
 automation, scene, voice assistant, or dashboard card.

@@ -12,7 +12,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.typing import ConfigType
 
+from .blueprint import async_install_bundled_blueprints
 from .const import (
     CONF_ADDRESS,
     CONF_CHANNELS,
@@ -38,6 +40,16 @@ class WaveshareData:
 
 
 type WaveshareConfigEntry = ConfigEntry[WaveshareData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Run once when the integration loads: install the bundled blueprint(s).
+
+    Done here rather than in async_setup_entry so it happens once regardless of how many
+    bus entries exist, and it never blocks setup -- a write failure only logs.
+    """
+    await async_install_bundled_blueprints(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WaveshareConfigEntry) -> bool:

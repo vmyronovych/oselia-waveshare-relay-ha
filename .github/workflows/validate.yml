@@ -12,6 +12,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  blueprints:
+    name: blueprints in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The blueprint is bundled inside the package (custom_components/.../blueprints/) so
+      # it ships in the HACS zip and auto-installs. The canonical copy at the repo root is
+      # what humans edit. Fail if they drift -- resync with:
+      #   cp blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml \
+      #      custom_components/waveshare_relay/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+      - name: Canonical and bundled blueprint copies must match
+        run: |
+          diff -u \
+            blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml \
+            custom_components/waveshare_relay/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+
   hassfest:
     name: hassfest
     runs-on: ubuntu-latest

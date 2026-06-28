@@ -129,11 +129,15 @@ Then add the first board:
 
 ## 8. Wire the wall switches → relays (OSELIA)
 
-- [ ] HA → Settings → Automations & Scenes → **Blueprints → Import Blueprint**, paste:
-  `https://github.com/vmyronovych/oselia-waveshare-relay-ha/blob/main/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml`
+- [ ] HA → Settings → Automations & Scenes → **Blueprints** — the *OSELIA button → Waveshare
+      relay* blueprint is already there (the integration installs it on startup; no import).
 - [ ] Create one automation per mapping: pick the **OSELIA input**, the **gesture**
       (single/double/long), the **relay**, and the **action** (toggle / on / off / pulse).
 - [ ] Press the physical switch → confirm the relay flips.
+
+> Blueprint updates arrive with the integration (update via HACS + restart). If the
+> blueprint is somehow missing, restart HA and it's re-created. Older builds (≤ v0.1.x)
+> predate auto-install — there you import it once from the repo `main` URL.
 
 ---
 
