@@ -138,6 +138,7 @@ Then add the first board:
 > Blueprint updates arrive with the integration (update via HACS + restart). If the
 > blueprint is somehow missing, restart HA and it's re-created. Older builds (≤ v0.1.x)
 > predate auto-install — there you import it once from the repo `main` URL.
+> See **[UPGRADING.md](UPGRADING.md)** for the full update guide.
 
 ---
 

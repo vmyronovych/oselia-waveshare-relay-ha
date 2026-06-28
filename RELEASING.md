@@ -44,11 +44,14 @@ Two things to do when a blueprint changes:
       custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
    ```
    The `blueprints in sync` check in `validate.yml` fails the build if they drift.
-2. **Release notes** need only a one-line *"the blueprint updates automatically on restart"*.
-   The canonical wording lives in the `blueprint-release-rollout` skill
-   (`.claude/skills/blueprint-release-rollout/rollout-snippet.md`) — it ships the
-   auto-delivery note plus a legacy manual-import fallback for users still on a
-   pre-auto-install build (≤ v0.1.x).
+2. **Release notes** carry a short per-release summary **plus a link to
+   [`UPGRADING.md`](UPGRADING.md)** — the single canonical "how to apply an update" guide
+   (HACS update + restart, the auto-installed blueprint, the customized-blueprint Repairs
+   flow, and the ≤ v0.1.x manual-import fallback). The canonical wording lives in the
+   `blueprint-release-rollout` skill
+   (`.claude/skills/blueprint-release-rollout/rollout-snippet.md`); fill in the summary and
+   paste. **Every release note links to `UPGRADING.md`** — and if a release changes *how
+   updates work*, update `UPGRADING.md` itself.
 
 ## Distribution
 

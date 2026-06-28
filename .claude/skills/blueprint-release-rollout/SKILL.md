@@ -33,7 +33,8 @@ Those builds don't auto-install, so the blueprint is a **separate imported copy*
 is **not active until they re-import** — and the UI's **"Re-import" button re-fetches the old
 pinned `source_url`**, so it pulls the pre-fix file (the bug PR #2 hit). For that audience the
 note must say: **Import Blueprint using the NEW tag's URL and confirm Overwrite** — never
-"just re-import". This lives as a collapsed fallback inside the snippet; keep it.
+"just re-import". These manual steps now live in **`UPGRADING.md`** (§4), which every
+release note links to — they are not repeated inline.
 
 What's safe to state either way: automations reference the blueprint by **path** and store
 their **own inputs** in `automations.yaml`, so overwriting the template never touches them.
@@ -47,13 +48,15 @@ The rollout section the user receives **must**:
    (`<details open>`) and English second (`<details>`). GitHub-Flavored Markdown has no
    tabs; `<details>` is the native equivalent. There is **no** shared summary outside the
    blocks — a reader opens one block and has everything in their language.
-2. Make **each block fully self-contained**, in this order: (a) the release's **issue/fix
-   summary** in that language, (b) the **auto-delivery apply steps** (update + restart) in
-   that language, (c) a nested collapsed **legacy manual-import fallback** for ≤ v0.1.x.
+2. Contain, in each block: (a) the release's **issue/fix summary** in that language, then
+   (b) a **link to the `UPGRADING.md` upgrade guide** for how to apply. The how-to-apply
+   *steps* are not repeated in the note — they live in the canonical `UPGRADING.md` (which
+   also holds the ≤ v0.1.x manual-import fallback). **Every release note and PR body must
+   carry this link.**
 
-`rollout-snippet.md` encodes all of this (steps + fallback are canonical; fill `<SUMMARY_UA>`
-/ `<SUMMARY_EN>` with the per-release issue text in each language). If you edit the snippet,
-preserve the layout.
+`rollout-snippet.md` encodes this; fill only `<SUMMARY_UA>` / `<SUMMARY_EN>` with the
+per-release issue text in each language. If you edit the snippet, preserve the layout and
+the upgrade-guide link.
 
 ## What to do
 
@@ -67,16 +70,14 @@ When the diff (PR) or the release contents (since the previous tag) touch `bluep
    cp blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
       custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
    ```
-3. Take the canonical text from [`rollout-snippet.md`](rollout-snippet.md) and fill its
-   placeholders: `<NEW_TAG>`, the blueprint sub-path `<BP_SUBPATH>`, and `<SUMMARY_UA>` /
-   `<SUMMARY_EN>` (the issue/fix summary in each language). Paste it **whole** — it already
-   is the two self-contained `<details>` blocks. Keep the placeholders identical between
-   the two languages.
+3. Take the canonical text from [`rollout-snippet.md`](rollout-snippet.md) and fill only
+   `<SUMMARY_UA>` / `<SUMMARY_EN>` (the issue/fix summary in each language). Paste it
+   **whole** — it already is the two `<details>` blocks plus the `UPGRADING.md` link.
    - **PR body:** paste the filled snippet as its own section.
    - **Release notes:** paste it into the body (`gh release create --generate-notes` won't
      add it — append it yourself, or `gh release edit vX.Y.Z --notes-file …`).
-4. Use the **tag** URL in the legacy fallback (immutable). For the PR body you may point at
-   `main` or the branch.
+4. If the release changes *how updates work* (not just this fix), update **`UPGRADING.md`**
+   too — it is the single source of the apply steps every release links to.
 5. Sanity-check (if you have container access): after restart the file at
    `/config/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml` matches the
    shipped one, and `.storage/waveshare_relay_blueprints` recorded its sha.
