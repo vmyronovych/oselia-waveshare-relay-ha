@@ -67,8 +67,15 @@ mode: queued
 max: 10
 
 trigger:
+  # `not_from: unavailable` so a gateway reboot can't fire us: the OSELIA `event` entity
+  # goes available -> unavailable -> available on the device's status LWT cycle, and on
+  # return HA restores the *last* gesture's timestamp/event_type. Without this guard that
+  # bounce looks like a fresh press and flips the relay. A real press never comes *from*
+  # unavailable (the device must be online to send a gesture).
   - platform: state
     entity_id: !input oselia_event
+    not_from:
+      - unavailable
 
 variables:
   gesture: !input gesture
@@ -77,7 +84,9 @@ variables:
 condition:
   - condition: template
     value_template: >-
-      {{ trigger.to_state is not none
+      {{ trigger.from_state is not none
+         and trigger.from_state.state != 'unavailable'
+         and trigger.to_state is not none
          and trigger.to_state.state not in ['unknown', 'unavailable']
          and trigger.to_state.attributes.event_type == gesture }}
 
