@@ -71,7 +71,7 @@ restart HA, and add the integration as above.
    - **Serial** — a USB/RS485 adapter on the HA host. Pick the port (auto-detected) and the
      **bus baud rate** (factory default **9600**).
    - **Network (TCP)** — the bus reached over the network. Use this when HA can't see the USB
-     port (see [HA in Docker](#home-assistant-in-docker-no-usb-access) below). Enter the
+     port (see [HA in Docker](#home-assistant-in-docker) below). Enter the
      bridge/gateway **host**, **port**, and **framing** (RTU over TCP for socat / transparent
      gateways; Modbus TCP only for an MBAP gateway).
 2. **Add the first board** — its **Modbus address** (factory default **1**), a **name**, and
@@ -82,13 +82,71 @@ restart HA, and add the integration as above.
 > **One config entry = one bus.** A serial port (or bridge socket) can only be opened once, so
 > every board on that RS485 bus lives under the same entry, each as its own HA device.
 
-## Home Assistant in Docker (no USB access)
+## Home Assistant in Docker
 
-If HA runs in Docker it usually can't see the USB adapter — and **Docker Desktop on macOS
-can't pass USB through at all**. Put the bus on the network and use the integration's
-**Network (TCP)** transport.
+Which path you need depends on whether the **Docker host can see the RS485 adapter**:
 
-### Recommended: the bundled Modbus-TCP gateway
+- **HA in Docker _on the machine the bus is wired to_** (the usual **Raspberry Pi**
+  setup) → pass the serial device into the container and use the **Serial** transport.
+  No gateway. See just below.
+- **HA can't see the port** — Docker Desktop on macOS (no USB passthrough at all), or HA
+  on a _different_ machine from the bus → put the bus on the network with the bundled
+  **Modbus-TCP gateway** and use the **Network (TCP)** transport. See
+  [further down](#when-ha-cant-see-the-usb-port--the-bundled-modbus-tcp-gateway).
+
+### Raspberry Pi (or any Linux host) with the bus attached — pass the device in (recommended, no gateway)
+
+When HA runs in Docker **on the same machine the USB/RS485 adapter (or a Pi's onboard
+UART) is plugged into**, give the container direct access to the serial device and use the
+**Serial** transport. No extra process to run or keep alive.
+
+**`docker run`** — add the device:
+
+```sh
+docker run -d --name homeassistant --restart unless-stopped \
+  --network host \
+  -v /PATH/TO/config:/config \
+  --device=/dev/ttyUSB0:/dev/ttyUSB0 \
+  ghcr.io/home-assistant/home-assistant:stable
+#  USB adapter: /dev/ttyUSB0   •   Pi onboard UART: /dev/ttyAMA0 (a.k.a. /dev/serial0)
+```
+
+**`docker-compose.yml`**:
+
+```yaml
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config:/config
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0   # or /dev/ttyAMAx for a Pi onboard UART
+```
+
+Restart the container after adding the device, then add the integration →
+**Serial** → port `/dev/ttyUSB0` (or your `/dev/ttyAMAx`), bus baud **9600**.
+
+**Raspberry Pi notes:**
+
+- **Onboard UART (RS485 HAT / GPIO header):** enable the UART and free it from the serial
+  console first — `sudo raspi-config` → *Interface Options → Serial Port* → login shell
+  over serial **No**, serial hardware **Yes** (equivalently `enable_uart=1` plus the right
+  `dtoverlay=` in `/boot/firmware/config.txt`). The port then appears as `/dev/ttyAMAx` /
+  `/dev/serial0`. Pass that path with `--device`.
+- **Stable path:** for USB adapters prefer `/dev/serial/by-id/usb-...` over `/dev/ttyUSB0`
+  (which can renumber across reboots/replugs), and pass the `by-id` path through.
+- **Permissions:** the device is `root:dialout`; `--device=` exposes it to the container as-is,
+  which is enough. (Some setups instead run the container `privileged: true` — that also
+  exposes every `/dev/tty*`; heavier, but it works.)
+
+> **Already running the gateway and want to switch?** Stop `modbus_gateway.py` (and disable
+> its launchd/systemd unit), add `--device`/`devices:` as above, recreate the container, and
+> set up the integration as **Serial**. Only one process can own the port at a time.
+
+### When HA can't see the USB port — the bundled Modbus-TCP gateway
 
 Run [`tools/modbus_gateway.py`](tools/modbus_gateway.py) on the machine that has the USB
 adapter. It speaks **Modbus TCP (MBAP)** to HA and does proper RTU framing on the serial
@@ -159,9 +217,10 @@ journalctl -u waveshare-gateway -f
 ```
 
 > On a Pi, prefer a stable `/dev/serial/by-id/...` path over `/dev/ttyUSB0` (which can
-> renumber). If HA itself runs in Docker **on the Pi**, you could instead pass the device
-> straight in with `--device=/dev/ttyUSB0` and use the **Serial** transport — no gateway
-> needed. The gateway is for when HA can't see the USB port.
+> renumber across reboots). Remember the gateway is **only** for when HA can't see the USB
+> port — if HA runs in Docker on this same Pi, pass the device into the container and use
+> the **Serial** transport instead
+> ([above](#raspberry-pi-or-any-linux-host-with-the-bus-attached--pass-the-device-in-recommended-no-gateway)).
 
 ### Why not plain `socat`?
 

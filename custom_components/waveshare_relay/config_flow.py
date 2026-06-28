@@ -172,6 +172,30 @@ async def _probe_board(cfg: dict, address: int, channels: int) -> bool:
         client.close()
 
 
+async def _probe_board_on_entry(entry: ConfigEntry, address: int, channels: int) -> bool:
+    """Probe a board, reusing the entry's already-open hub when the bus is live.
+
+    A loaded entry holds the serial port open *exclusively*, so opening a second
+    connection here (as `_probe_board` does) can't lock the port and the failure is
+    misread as "no board at that address". When the hub is running we read through
+    its shared, serialized connection instead; only if the entry isn't loaded do we
+    fall back to opening our own short-lived connection.
+    """
+    data = getattr(entry, "runtime_data", None)
+    hub = getattr(data, "hub", None)
+    if hub is not None:
+        try:
+            await hub.async_read_relays(address, channels)
+            return True
+        except Exception as err:  # ModbusError on no/garbled reply
+            _LOGGER.warning(
+                "Waveshare: no reply from address %s on %s: %s",
+                address, hub.label, err,
+            )
+            return False
+    return await _probe_board(dict(entry.data), address, channels)
+
+
 def _unit_kw() -> str:
     from .hub import _UNIT_KW
 
@@ -300,7 +324,7 @@ class WaveshareOptionsFlow(OptionsFlow):
             existing = {d[CONF_ADDRESS] for d in entry.data.get(CONF_DEVICES, [])}
             if address in existing:
                 errors["base"] = "duplicate_address"
-            elif not await _probe_board(dict(entry.data), address, channels):
+            elif not await _probe_board_on_entry(entry, address, channels):
                 errors["base"] = "no_response"
             else:
                 devices = [
