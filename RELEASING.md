@@ -5,7 +5,7 @@ one-click update (then HA restarts).
 
 ## Versioning
 
-- Releases use plain **`v*`** semver tags (e.g. `v0.2.0`).
+- Releases use plain **`v*`** semver tags (e.g. `v0.3.0`).
 - The **tag is the single source of version truth**: the `release` workflow stamps it into
   `custom_components/waveshare_relay/manifest.json`, so the committed manifest version is
   just a dev default and can't drift from what ships.
@@ -18,7 +18,7 @@ one-click update (then HA restarts).
    every PR).
 2. Create a GitHub Release on a new `v*` tag — UI, or:
    ```sh
-   gh release create v0.2.0 --generate-notes --title "v0.2.0"
+   gh release create v0.3.0 --generate-notes --title "v0.3.0"
    ```
 3. The **`release` workflow** (`.github/workflows/release.yml`) fires on *release
    published*: it gates on `py_compile`, stamps the tag version into `manifest.json`, zips

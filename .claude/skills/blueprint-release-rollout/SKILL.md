@@ -2,7 +2,7 @@
 name: blueprint-release-rollout
 description: >-
   Attach the right end-user rollout note whenever a PR or GitHub Release for this
-  repo changes a file under blueprints/**. From the auto-install build (v0.2.0+) the
+  repo changes a file under blueprints/**. From the auto-install build (v0.2.1+) the
   blueprint ships inside the integration and updates itself on restart, so the note is
   short; a legacy manual re-import fallback is kept for users still on <= v0.1.x. Use
   when asked to "open a PR" / "cut a release" / "write release notes" / "draft the PR
@@ -12,7 +12,7 @@ description: >-
 
 # Blueprint release rollout
 
-**As of the auto-install build (v0.2.0+), the blueprint is bundled inside the integration
+**As of the auto-install build (v0.2.1+), the blueprint is bundled inside the integration
 and written to `/config/blueprints/automation/vmyronovych/` on startup** (see
 `custom_components/waveshare_relay/blueprint.py`). So a normal **HACS update + restart
 delivers blueprint fixes automatically** — there is no manual re-import in the common case.
