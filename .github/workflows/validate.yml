@@ -20,13 +20,13 @@ jobs:
       # The blueprint is bundled inside the package (custom_components/.../blueprints/) so
       # it ships in the HACS zip and auto-installs. The canonical copy at the repo root is
       # what humans edit. Fail if they drift -- resync with:
-      #   cp blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml \
-      #      custom_components/waveshare_relay/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+      #   cp blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
+      #      custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
       - name: Canonical and bundled blueprint copies must match
         run: |
           diff -u \
-            blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml \
-            custom_components/waveshare_relay/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+            blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
+            custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
 
   hassfest:
     name: hassfest

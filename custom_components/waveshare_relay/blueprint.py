@@ -1,7 +1,7 @@
 """Ship the integration's blueprints into the user's HA on startup.
 
 HACS updates only deliver `custom_components/`. The blueprint, though, lives as a separate
-copy in `/config/blueprints/automation/waveshare_relay/`, so a fix would never reach users
+copy in `/config/blueprints/automation/vmyronovych/`, so a fix would never reach users
 without a manual re-import. We bundle the blueprint inside the package (it ships in the
 HACS zip) and copy it onto disk here, so a normal update + restart delivers it.
 
