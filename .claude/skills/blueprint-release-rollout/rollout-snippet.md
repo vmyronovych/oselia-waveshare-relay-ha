@@ -2,7 +2,7 @@
 Canonical user-facing rollout text for blueprint changes.
 Fill the placeholders before pasting into a PR body or release notes:
   <NEW_TAG>      e.g. v0.2.0  (used only in the legacy manual-import fallback)
-  <BP_SUBPATH>   e.g. blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+  <BP_SUBPATH>   e.g. blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
   <SUMMARY_UA>   the release's issue/fix summary, written in Ukrainian
   <SUMMARY_EN>   the same issue/fix summary, written in English
 Keep this file the single source of wording (see SKILL.md).
@@ -31,7 +31,7 @@ Keep the <NEW_TAG>/<BP_SUBPATH> placeholders identical between the two languages
 1. Оновіть **Waveshare Relay** у HACS (HACS → відкрийте інтеграцію → **Update** / **Redownload**)
    і **перезапустіть Home Assistant**.
 2. Готово — під час перезапуску інтеграція записує новий блупринт у
-   `/config/blueprints/automation/waveshare_relay/`. Ваші автоматизації зберігають свої
+   `/config/blueprints/automation/vmyronovych/`. Ваші автоматизації зберігають свої
    параметри, змінювати нічого не потрібно.
 
 > **Редагували блупринт самі?** Ваші зміни **не** перезаписуються — інтеграція їх зберігає і
@@ -72,7 +72,7 @@ The blueprint is **bundled in the integration** and installs itself — there's 
 1. Update **Waveshare Relay** in HACS (HACS → open the integration → **Update** / **Redownload**)
    and **restart Home Assistant**.
 2. That's it — on restart the integration writes the new blueprint to
-   `/config/blueprints/automation/waveshare_relay/`. Your automations keep their inputs and
+   `/config/blueprints/automation/vmyronovych/`. Your automations keep their inputs and
    need no changes.
 
 > **Customized the blueprint yourself?** Your edits are **not** overwritten — the integration

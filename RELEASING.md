@@ -36,12 +36,12 @@ them); see `custom_components/waveshare_relay/blueprint.py`.
 Two things to do when a blueprint changes:
 
 1. **Keep the bundled copy in sync with the canonical one.** The repo-root file
-   `blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml` is the human-edited
+   `blueprints/automation/vmyronovych/oselia_button_to_relay.yaml` is the human-edited
    source; the shipped copy under `custom_components/waveshare_relay/blueprints/…` must
    match it. Resync and commit:
    ```sh
-   cp blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml \
-      custom_components/waveshare_relay/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+   cp blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
+      custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
    ```
    The `blueprints in sync` check in `validate.yml` fails the build if they drift.
 2. **Release notes** need only a one-line *"the blueprint updates automatically on restart"*.

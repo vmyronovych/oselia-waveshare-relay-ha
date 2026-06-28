@@ -5,7 +5,7 @@ blueprint:
     action on one Waveshare relay. Pick the OSELIA input, the gesture, the relay, and
     what it should do. Add one automation per button→relay mapping.
   domain: automation
-  source_url: https://github.com/vmyronovych/oselia-waveshare-relay-ha/blob/main/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+  source_url: https://github.com/vmyronovych/oselia-waveshare-relay-ha/blob/main/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
   input:
     oselia_event:
       name: OSELIA input

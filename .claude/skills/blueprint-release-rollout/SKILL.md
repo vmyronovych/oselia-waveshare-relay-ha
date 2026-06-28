@@ -13,7 +13,7 @@ description: >-
 # Blueprint release rollout
 
 **As of the auto-install build (v0.2.0+), the blueprint is bundled inside the integration
-and written to `/config/blueprints/automation/waveshare_relay/` on startup** (see
+and written to `/config/blueprints/automation/vmyronovych/` on startup** (see
 `custom_components/waveshare_relay/blueprint.py`). So a normal **HACS update + restart
 delivers blueprint fixes automatically** — there is no manual re-import in the common case.
 
@@ -64,8 +64,8 @@ When the diff (PR) or the release contents (since the previous tag) touch `bluep
 2. **Resync the bundled copy** so the shipped blueprint matches the canonical one (the CI
    `blueprints in sync` check enforces this):
    ```sh
-   cp blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml \
-      custom_components/waveshare_relay/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+   cp blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
+      custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
    ```
 3. Take the canonical text from [`rollout-snippet.md`](rollout-snippet.md) and fill its
    placeholders: `<NEW_TAG>`, the blueprint sub-path `<BP_SUBPATH>`, and `<SUMMARY_UA>` /
@@ -78,7 +78,7 @@ When the diff (PR) or the release contents (since the previous tag) touch `bluep
 4. Use the **tag** URL in the legacy fallback (immutable). For the PR body you may point at
    `main` or the branch.
 5. Sanity-check (if you have container access): after restart the file at
-   `/config/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml` matches the
+   `/config/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml` matches the
    shipped one, and `.storage/waveshare_relay_blueprints` recorded its sha.
 
 ## Keep it consistent
