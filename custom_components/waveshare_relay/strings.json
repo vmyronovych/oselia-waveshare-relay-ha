@@ -127,8 +127,19 @@
   },
   "issues": {
     "blueprint_user_modified": {
-      "title": "Customized blueprint not updated",
-      "description": "This update ships a newer version of the blueprint, but Home Assistant kept your edited copy at `{path}` instead of overwriting your changes. To get the latest blueprint, delete that file and restart Home Assistant (it will be re-created from the integration). To keep your changes, copy the blueprint to your own name/path and build automations from that copy — a private copy is never overwritten. Dismiss this once you've decided."
+      "title": "A newer version of your customized blueprint is available",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Customized blueprint — keep yours or take the update?",
+            "description": "You edited the blueprint at `{path}`, and this update ships a newer version. Your automations and their inputs are unaffected either way.\n\n- **Take the new version** — replace your file with the latest; your current file is backed up next to it as `*.bak`.\n- **Keep my version** — leave your edited file as-is; you won't be reminded again until an even newer version ships.\n\nTip: to keep customizing *and* always get updates, copy the blueprint to your own name/path and build automations from that copy — a private copy is never touched.",
+            "menu_options": {
+              "take_new": "Take the new version (back up mine)",
+              "keep_mine": "Keep my edited version"
+            }
+          }
+        }
+      }
     }
   }
 }
