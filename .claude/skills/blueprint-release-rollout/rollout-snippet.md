@@ -1,7 +1,7 @@
 <!--
 Canonical user-facing rollout text for blueprint changes.
 Fill the placeholders before pasting into a PR body or release notes:
-  <NEW_TAG>      e.g. v0.2.0  (used only in the legacy manual-import fallback)
+  <NEW_TAG>      e.g. v0.2.1  (used only in the legacy manual-import fallback)
   <BP_SUBPATH>   e.g. blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
   <SUMMARY_UA>   the release's issue/fix summary, written in Ukrainian
   <SUMMARY_EN>   the same issue/fix summary, written in English
