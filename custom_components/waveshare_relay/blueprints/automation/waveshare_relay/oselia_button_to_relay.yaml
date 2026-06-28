@@ -1,0 +1,116 @@
+blueprint:
+  name: OSELIA button → Waveshare relay
+  description: >-
+    Map a single OSELIA Hearth wall-switch gesture (single / double / long press) to an
+    action on one Waveshare relay. Pick the OSELIA input, the gesture, the relay, and
+    what it should do. Add one automation per button→relay mapping.
+  domain: automation
+  source_url: https://github.com/vmyronovych/oselia-waveshare-relay-ha/blob/main/blueprints/automation/waveshare_relay/oselia_button_to_relay.yaml
+  input:
+    oselia_event:
+      name: OSELIA input
+      description: The OSELIA `event` entity for the wall-switch input.
+      selector:
+        entity:
+          filter:
+            - integration: oselia
+              domain: event
+    gesture:
+      name: Gesture
+      description: Which press of that input triggers the relay.
+      default: single
+      selector:
+        select:
+          options:
+            - label: Single press
+              value: single
+            - label: Double press
+              value: double
+            - label: Long press
+              value: long
+    relay:
+      name: Relay
+      description: The Waveshare relay switch to act on.
+      selector:
+        entity:
+          filter:
+            - integration: waveshare_relay
+              domain: switch
+    relay_action:
+      name: Action
+      description: What to do to the relay when the gesture fires.
+      default: toggle
+      selector:
+        select:
+          options:
+            - label: Toggle
+              value: toggle
+            - label: Turn on
+              value: turn_on
+            - label: Turn off
+              value: turn_off
+            - label: Pulse (momentary)
+              value: pulse
+    pulse_duration:
+      name: Pulse duration
+      description: Hold time for the Pulse action, in seconds.
+      default: 0.5
+      selector:
+        number:
+          min: 0.05
+          max: 60
+          step: 0.05
+          unit_of_measurement: s
+          mode: box
+
+mode: queued
+max: 10
+
+trigger:
+  # `not_from: unavailable` so a gateway reboot can't fire us: the OSELIA `event` entity
+  # goes available -> unavailable -> available on the device's status LWT cycle, and on
+  # return HA restores the *last* gesture's timestamp/event_type. Without this guard that
+  # bounce looks like a fresh press and flips the relay. A real press never comes *from*
+  # unavailable (the device must be online to send a gesture).
+  - platform: state
+    entity_id: !input oselia_event
+    not_from:
+      - unavailable
+
+variables:
+  gesture: !input gesture
+  relay_action: !input relay_action
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none
+         and trigger.from_state.state != 'unavailable'
+         and trigger.to_state is not none
+         and trigger.to_state.state not in ['unknown', 'unavailable']
+         and trigger.to_state.attributes.event_type == gesture }}
+
+action:
+  - choose:
+      - conditions: "{{ relay_action == 'toggle' }}"
+        sequence:
+          - service: switch.toggle
+            target:
+              entity_id: !input relay
+      - conditions: "{{ relay_action == 'turn_on' }}"
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input relay
+      - conditions: "{{ relay_action == 'turn_off' }}"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input relay
+      - conditions: "{{ relay_action == 'pulse' }}"
+        sequence:
+          - service: waveshare_relay.pulse
+            target:
+              entity_id: !input relay
+            data:
+              duration: !input pulse_duration
