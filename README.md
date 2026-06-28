@@ -297,10 +297,13 @@ re-import). Go straight to **Settings → Automations → Blueprints** to use it
 maps **one OSELIA input + gesture → one relay action** (toggle / on / off / pulse). Add as
 many as you like — e.g. *“kitchen switch, double-press → pulse the gate relay.”*
 
-> **Customizing the blueprint?** Edits to the installed file are **not** overwritten on
-> update — the integration detects your changes, keeps them, and raises a Repairs notice
-> that a newer version exists. To run a modified version *and* keep getting updates, copy
-> the blueprint to your own name/path and build automations from that copy.
+> **Customizing the blueprint?** Edits to the installed file are **never** overwritten on
+> update. When a newer version ships, the integration leaves your file alone and raises a
+> **Repairs** notice with a one-click choice: **take the new version** (your file is backed
+> up to `*.bak` first) or **keep mine** (you're not reminded again until an even newer
+> version ships). To run a modified version *and* always get updates seamlessly, copy the
+> blueprint to your own name/path and build automations from that copy — a private copy is
+> never touched.
 
 Because the relays are standard `switch` entities, they also work with any normal
 automation, scene, voice assistant, or dashboard card.
