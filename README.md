@@ -293,7 +293,8 @@ The integration **installs its blueprint for you**: the
 blueprint ships inside the integration and is written to
 `/config/blueprints/automation/vmyronovych/` on startup — so it's there after install,
 and **updates ride along with the integration** (just update via HACS and restart; no
-re-import). Go straight to **Settings → Automations → Blueprints** to use it. Each automation
+re-import — see **[UPGRADING.md](UPGRADING.md)** for how updates work). Go straight to
+**Settings → Automations → Blueprints** to use it. Each automation
 maps **one OSELIA input + gesture → one relay action** (toggle / on / off / pulse). Add as
 many as you like — e.g. *“kitchen switch, double-press → pulse the gate relay.”*
 
