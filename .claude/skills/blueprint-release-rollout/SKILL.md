@@ -17,8 +17,17 @@ and written to `/config/blueprints/automation/vmyronovych/` on startup** (see
 `custom_components/waveshare_relay/blueprint.py`). So a normal **HACS update + restart
 delivers blueprint fixes automatically** — there is no manual re-import in the common case.
 
-What the rollout note must convey now:
+**Lead with the consumer, then go technical.** Every PR body and release note must be
+ordered **non-technical first**: open with a plain-language description of *the problem this
+release solves for the user* and the outcome they get (no jargon, no file names), then the
+how-to-apply link — and only **after** that, a separate `## Technical details` section
+(summary of changes, verification) for engineers. The bilingual rollout blocks below are the
+consumer-first part and go at the **top**; the technical detail goes underneath.
 
+What the consumer-first rollout note must convey now:
+
+- **The problem and the outcome in plain words** — what was wrong / what gets better, framed
+  for a homeowner or installer, not a developer.
 - **Update the integration in HACS and restart HA. That's it** — the new blueprint installs
   itself on restart; automations keep their inputs and need no changes.
 - **User edits are safe.** The installer uses a smart overwrite: it only replaces a copy the
@@ -44,15 +53,19 @@ Never recommend delete + re-add (HA blocks deleting an in-use blueprint).
 
 The rollout section the user receives **must**:
 
-1. Be **two root-level collapsible `<details>` blocks, one per language, Ukrainian first**
+1. Come **first**, at the top of the PR body / release notes (before any technical
+   section). It is the consumer-facing part.
+2. Be **two root-level collapsible `<details>` blocks, one per language, Ukrainian first**
    (`<details open>`) and English second (`<details>`). GitHub-Flavored Markdown has no
    tabs; `<details>` is the native equivalent. There is **no** shared summary outside the
    blocks — a reader opens one block and has everything in their language.
-2. Contain, in each block: (a) the release's **issue/fix summary** in that language, then
-   (b) a **link to the `UPGRADING.md` upgrade guide** for how to apply. The how-to-apply
-   *steps* are not repeated in the note — they live in the canonical `UPGRADING.md` (which
-   also holds the ≤ v0.1.x manual-import fallback). **Every release note and PR body must
-   carry this link.**
+3. Contain, in each block: (a) the release's **plain-language problem + outcome** in that
+   language (what gets better for the user, no jargon), then (b) a **link to the
+   `UPGRADING.md` upgrade guide** for how to apply. The how-to-apply *steps* are not repeated
+   in the note — they live in the canonical `UPGRADING.md` (which also holds the ≤ v0.1.x
+   manual-import fallback). **Every release note and PR body must carry this link.**
+4. Be followed by a `## Technical details` section (summary of changes + verification) for
+   engineers — never above the consumer blocks.
 
 `rollout-snippet.md` encodes this; fill only `<SUMMARY_UA>` / `<SUMMARY_EN>` with the
 per-release issue text in each language. If you edit the snippet, preserve the layout and
