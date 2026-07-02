@@ -51,6 +51,8 @@
         "menu_options": {
           "add_device": "Add a relay board",
           "remove_device": "Remove a relay board",
+          "add_cover": "Add a roller shutter",
+          "remove_cover": "Remove a roller shutter",
           "settings": "Bus settings"
         }
       },
@@ -69,6 +71,24 @@
           "remove": "Boards to remove"
         }
       },
+      "add_cover": {
+        "title": "Add a roller shutter",
+        "description": "Pair the up and down relays of one shutter into a single cover. The relay numbers match the switch labels (Relay 1, Relay 2, …). Leave the travel times at 0 to add it uncalibrated — open, close and stop still work; enter the seconds a full run takes each way to unlock the position slider.",
+        "data": {
+          "name": "Name",
+          "address": "Relay board",
+          "up_channel": "Up relay (opens)",
+          "down_channel": "Down relay (closes)",
+          "up_travel_time": "Up travel time (seconds)",
+          "down_travel_time": "Down travel time (seconds)"
+        }
+      },
+      "remove_cover": {
+        "title": "Remove roller shutters",
+        "data": {
+          "remove": "Shutters to remove"
+        }
+      },
       "settings": {
         "title": "Bus settings",
         "data": {
@@ -78,7 +98,14 @@
     },
     "error": {
       "no_response": "No relay board answered at that address.",
-      "duplicate_address": "A board with that address is already configured."
+      "duplicate_address": "A board with that address is already configured.",
+      "same_channel": "The up and down relays must be different channels.",
+      "channel_out_of_range": "A relay number is outside this board's channel count.",
+      "channel_in_use": "One of those relays is already paired to another shutter."
+    },
+    "abort": {
+      "no_boards": "Add a relay board before adding a shutter.",
+      "no_covers": "There are no roller shutters to remove."
     }
   },
   "services": {

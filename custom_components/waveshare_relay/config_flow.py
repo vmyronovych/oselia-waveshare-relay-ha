@@ -11,6 +11,7 @@ Options flow: add or remove boards on the same bus, and tune the poll interval.
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 import voluptuous as vol
@@ -31,14 +32,20 @@ from .const import (
     CONF_ADDRESS,
     CONF_BAUDRATE,
     CONF_CHANNELS,
+    CONF_COVERS,
     CONF_DEVICES,
+    CONF_DOWN_CHANNEL,
+    CONF_DOWN_TRAVEL_TIME,
     CONF_FRAMER,
     CONF_HOST,
+    CONF_ID,
     CONF_NAME,
     CONF_PORT,
     CONF_SCAN_INTERVAL,
     CONF_TCP_PORT,
     CONF_TYPE,
+    CONF_UP_CHANNEL,
+    CONF_UP_TRAVEL_TIME,
     DEFAULT_ADDRESS,
     DEFAULT_BAUDRATE,
     DEFAULT_CHANNELS,
@@ -133,6 +140,65 @@ def _device_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 selector.SelectSelectorConfig(
                     options=[str(c) for c in CHANNEL_OPTIONS],
                     mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+    )
+
+
+def _cover_schema(
+    devices: list[dict], defaults: dict[str, Any] | None = None
+) -> vol.Schema:
+    """Pair two coils on one board into a roller-shutter cover.
+
+    Channels are shown 1-based (matching the relay labels) and stored 0-based. Travel
+    times are optional: leave them 0 to add the cover uncalibrated (open/close/stop
+    work; the position slider stays hidden until you time a full run each way).
+    """
+    d = defaults or {}
+    board_options = [
+        selector.SelectOptionDict(
+            value=str(dev[CONF_ADDRESS]),
+            label=f"{dev.get(CONF_NAME)} (address {dev[CONF_ADDRESS]})",
+        )
+        for dev in devices
+    ]
+    default_address = d.get(CONF_ADDRESS) or (devices[0][CONF_ADDRESS] if devices else 1)
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_NAME, default=d.get(CONF_NAME, "Roller shutter")
+            ): str,
+            vol.Required(
+                CONF_ADDRESS, default=str(default_address)
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=board_options,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_UP_CHANNEL, default=d.get(CONF_UP_CHANNEL, 1)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=32, step=1, mode="box")
+            ),
+            vol.Required(
+                CONF_DOWN_CHANNEL, default=d.get(CONF_DOWN_CHANNEL, 2)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=32, step=1, mode="box")
+            ),
+            vol.Optional(
+                CONF_UP_TRAVEL_TIME, default=d.get(CONF_UP_TRAVEL_TIME, 0)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=600, step=0.1, unit_of_measurement="s", mode="box"
+                )
+            ),
+            vol.Optional(
+                CONF_DOWN_TRAVEL_TIME, default=d.get(CONF_DOWN_TRAVEL_TIME, 0)
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0, max=600, step=0.1, unit_of_measurement="s", mode="box"
                 )
             ),
         }
@@ -310,7 +376,13 @@ class WaveshareOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["add_device", "remove_device", "settings"],
+            menu_options=[
+                "add_device",
+                "remove_device",
+                "add_cover",
+                "remove_cover",
+                "settings",
+            ],
         )
 
     async def async_step_add_device(
@@ -376,6 +448,94 @@ class WaveshareOptionsFlow(OptionsFlow):
             }
         )
         return self.async_show_form(step_id="remove_device", data_schema=schema)
+
+    async def async_step_add_cover(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        entry = self.config_entry
+        devices = entry.data.get(CONF_DEVICES, [])
+        if not devices:
+            return self.async_abort(reason="no_boards")
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            address = int(user_input[CONF_ADDRESS])
+            up = int(user_input[CONF_UP_CHANNEL]) - 1
+            down = int(user_input[CONF_DOWN_CHANNEL]) - 1
+            up_time = float(user_input.get(CONF_UP_TRAVEL_TIME) or 0)
+            down_time = float(user_input.get(CONF_DOWN_TRAVEL_TIME) or 0)
+            board = next((d for d in devices if d[CONF_ADDRESS] == address), None)
+            channels = board.get(CONF_CHANNELS, DEFAULT_CHANNELS) if board else 0
+            used = {
+                ch
+                for cov in entry.data.get(CONF_COVERS, [])
+                if cov[CONF_ADDRESS] == address
+                for ch in (cov[CONF_UP_CHANNEL], cov[CONF_DOWN_CHANNEL])
+            }
+            if up == down:
+                errors["base"] = "same_channel"
+            elif not (0 <= up < channels and 0 <= down < channels):
+                errors["base"] = "channel_out_of_range"
+            elif up in used or down in used:
+                errors["base"] = "channel_in_use"
+            else:
+                cover = {
+                    CONF_ID: uuid.uuid4().hex,
+                    CONF_NAME: user_input[CONF_NAME],
+                    CONF_ADDRESS: address,
+                    CONF_UP_CHANNEL: up,
+                    CONF_DOWN_CHANNEL: down,
+                }
+                if up_time > 0:
+                    cover[CONF_UP_TRAVEL_TIME] = up_time
+                if down_time > 0:
+                    cover[CONF_DOWN_TRAVEL_TIME] = down_time
+                covers = [*entry.data.get(CONF_COVERS, []), cover]
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, CONF_COVERS: covers}
+                )
+                return self.async_create_entry(title="", data=dict(entry.options))
+
+        return self.async_show_form(
+            step_id="add_cover",
+            data_schema=_cover_schema(devices, user_input),
+            errors=errors,
+        )
+
+    async def async_step_remove_cover(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        entry = self.config_entry
+        covers = entry.data.get(CONF_COVERS, [])
+        if not covers:
+            return self.async_abort(reason="no_covers")
+        if user_input is not None:
+            drop = set(user_input.get("remove", []))
+            remaining = [c for c in covers if c[CONF_ID] not in drop]
+            self.hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_COVERS: remaining}
+            )
+            return self.async_create_entry(title="", data=dict(entry.options))
+
+        options = [
+            selector.SelectOptionDict(
+                value=c[CONF_ID],
+                label=f"{c.get(CONF_NAME) or 'Roller shutter'} (address {c[CONF_ADDRESS]})",
+            )
+            for c in covers
+        ]
+        schema = vol.Schema(
+            {
+                vol.Required("remove", default=[]): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=options,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
+                )
+            }
+        )
+        return self.async_show_form(step_id="remove_cover", data_schema=schema)
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
