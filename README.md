@@ -327,8 +327,25 @@ many as you like — e.g. *“kitchen switch, double-press → pulse the gate re
 > blueprint to your own name/path and build automations from that copy — a private copy is
 > never touched.
 
-Because the relays are standard `switch` entities, they also work with any normal
-automation, scene, voice assistant, or dashboard card.
+### Buttons → roller shutters (tap = light, hold = shutter)
+
+A second bundled blueprint,
+[`OSELIA button → roller shutter (cover)`](blueprints/automation/vmyronovych/oselia_button_to_cover.yaml),
+drives a [cover](#roller-shutters-covers) from a gesture. The convention is that **one
+physical button multiplexes light and shutter**: **tap = light** (the relay blueprint on
+the *single* gesture), **hold or double = shutter** (this blueprint). On a two-gang plate,
+wire the **up button's hold → Open** and the **down button's hold → Close**.
+
+**A press while the shutter is moving stops it** — the natural "tap to halt at a slat
+position" — baked in as the default (toggleable per automation). It also keeps the same
+`unavailable` guard, so a gateway reboot can't move a shutter.
+
+> Wiring this by hand across 50–70 switches is deliberately tedious — the blueprint exists
+> to **prove the interaction contract** before a config panel automates it, using the
+> mechanism installers already ship.
+
+Because the relays are standard `switch` entities (and shutters standard `cover` entities),
+they also work with any normal automation, scene, voice assistant, or dashboard card.
 
 ## Ideas / roadmap
 
