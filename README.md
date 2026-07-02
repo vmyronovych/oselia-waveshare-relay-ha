@@ -242,6 +242,7 @@ expect to tune timing.)
 | Entity | What it does |
 | --- | --- |
 | **Switch** ×N | One per relay — see live state, turn on/off. **Rename freely** in the UI; the name sticks to the relay. |
+| **Roller shutter** (cover) | Optional — pair a shutter's up + down relays into one native `cover`. See below. |
 | **All on / All off** (buttons) | Flip every relay in a single bus frame (uses the hardware "all relays" coil). |
 | **Connection** (binary sensor) | Connectivity — is the board answering on the bus? Always available, so you can alert on a dead board. |
 | **Active relays** (sensor) | How many relays are currently on. |
@@ -250,6 +251,26 @@ expect to tune timing.)
 State is **polled** from the hardware (default every 10 s, adjustable in *Configure → Bus
 settings*), so the switches stay truthful even if a relay is flipped by something else on
 the bus. Writes update the UI instantly and re-read to confirm.
+
+### Roller shutters (covers)
+
+A roller shutter is driven by **two relays** — an *up* coil and a *down* coil that must
+never be energized together and share a travel-time model. Rather than hand-wiring the
+interlock and timing per shutter, pair the two relays into **one native `cover`**:
+*Configure → Add a roller shutter*, pick the board and the up/down relay numbers (they
+match the switch labels), name it, done. **Open / close / stop work immediately.**
+
+The cover logic is the safety-critical part, so it lives in tested code:
+
+- **Interlock** — before energizing one coil the other is always commanded off (belt-and-braces on top of the board's wiring, which already forbids both-on).
+- **Break-before-make** — on a direction reversal it de-energizes, pauses, then drives the other way, so the motor never sees an instant reversal.
+- **Max-run cutoff** — every move auto-de-energizes a margin past the expected travel time (or a hard cap when uncalibrated), so a lost *stop* can't leave a motor powered.
+
+**Position** is a refinement layered on top. Enter the seconds a full run takes each way
+(the *travel times*) to unlock the position slider and *go-to 50 %*: position is estimated
+from motor-on time and **re-synced to exactly 0 %/100 % at the hard limits** so error can't
+accumulate. Leave the travel times at 0 to run uncalibrated — open/close/stop still work,
+the slider just stays hidden.
 
 ## Services
 

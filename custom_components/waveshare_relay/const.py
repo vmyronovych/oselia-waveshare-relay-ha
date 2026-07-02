@@ -33,6 +33,15 @@ CONF_NAME = "name"
 CONF_CHANNELS = "channels"
 CONF_SCAN_INTERVAL = "scan_interval"
 
+# --- roller-shutter cover keys ---
+# A cover pairs two coils on ONE board (address) into a native `cover` entity.
+CONF_COVERS = "covers"            # list[ cover-config dict ] on the bus
+CONF_ID = "id"                    # stable per-cover uuid (survives rename/reorder)
+CONF_UP_CHANNEL = "up_channel"    # 0-based coil that drives the motor OPEN
+CONF_DOWN_CHANNEL = "down_channel"  # 0-based coil that drives the motor CLOSE
+CONF_UP_TRAVEL_TIME = "up_travel_time"      # seconds, full close -> full open (0 = uncalibrated)
+CONF_DOWN_TRAVEL_TIME = "down_travel_time"  # seconds, full open -> full close
+
 # transport types
 TYPE_SERIAL = "serial"
 TYPE_TCP = "tcp"
@@ -74,6 +83,7 @@ BROADCAST_ADDRESS = 0x00          # read a lone device's address with this
 
 PLATFORMS = [
     Platform.SWITCH,
+    Platform.COVER,
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
     Platform.BUTTON,
@@ -92,6 +102,19 @@ ATTR_NEW_ADDRESS = "new_address"
 ATTR_BAUD_RATE = "baud_rate"
 
 DEFAULT_PULSE_DURATION = 0.5      # seconds
+
+# --- roller-shutter safety / timing ---
+# Break-before-make: pause after de-energizing one coil before energizing the other on
+# a direction reversal, so the motor/capacitor never sees an instant reversal even if a
+# board's own interlock ever failed. Defense-in-depth on top of the HW interlock.
+REVERSAL_PAUSE = 0.6              # seconds
+# Max-run cutoff: de-energize this many seconds past the expected travel time so a lost
+# "stop" (missed event, crash mid-move) can never leave a motor powered indefinitely.
+MAX_RUN_MARGIN = 3.0             # seconds added to the calibrated travel time
+# Hard cap used when travel time is not yet calibrated (no position estimate available).
+DEFAULT_MAX_RUN = 120.0          # seconds
+# How often to push a position update to the UI while the cover is moving.
+POSITION_UPDATE_INTERVAL = 1.0   # seconds
 
 # --- dispatcher signals ---
 # Fired (per entry) when the bus link goes up/down -- refreshes availability entities.
