@@ -1,0 +1,132 @@
+blueprint:
+  name: OSELIA button → roller shutter (cover)
+  description: >-
+    Map an OSELIA Hearth wall-switch gesture to a Waveshare roller-shutter `cover`
+    (open / close / stop). The convention: **tap = light, hold (or double) = shutter** —
+    one physical button multiplexes both. Wire the *up* button's hold to **Open** and the
+    *down* button's hold to **Close**; a press while the shutter is moving **stops** it
+    (tap to halt at a slat position). Keep single-press mapped to a light with the sibling
+    "OSELIA button → Waveshare relay" blueprint. Add one automation per button→cover gesture.
+  domain: automation
+  source_url: https://github.com/vmyronovych/oselia-waveshare-relay-ha/blob/main/blueprints/automation/vmyronovych/oselia_button_to_cover.yaml
+  input:
+    oselia_event:
+      name: OSELIA input
+      description: The OSELIA `event` entity for the wall-switch input.
+      selector:
+        entity:
+          filter:
+            - integration: oselia
+              domain: event
+    gesture:
+      name: Gesture
+      description: >-
+        Which press of that input drives the shutter. Hold or double are the natural
+        "shutter" gestures, leaving single-press free for the light.
+      default: long
+      selector:
+        select:
+          options:
+            - label: Single press
+              value: single
+            - label: Double press
+              value: double
+            - label: Long press
+              value: long
+    cover:
+      name: Roller shutter
+      description: The Waveshare `cover` to act on.
+      selector:
+        entity:
+          filter:
+            - integration: waveshare_relay
+              domain: cover
+    cover_action:
+      name: Action
+      description: >-
+        What the gesture does when the shutter is at rest. Use Open on the up-button and
+        Close on the down-button. (While the shutter is moving, "Stop when moving" below
+        takes over.)
+      default: open
+      selector:
+        select:
+          options:
+            - label: Open
+              value: open
+            - label: Close
+              value: close
+            - label: Stop
+              value: stop
+            - label: Toggle (open ⇄ close)
+              value: toggle
+    stop_if_moving:
+      name: Stop when moving
+      description: >-
+        Baked-in default: if the shutter is already opening or closing, this gesture
+        stops it instead of running the action above — the natural "tap to halt" at any
+        slat position. Turn off only if you want the gesture to always re-issue its action.
+      default: true
+      selector:
+        boolean: {}
+
+mode: queued
+max: 10
+
+trigger:
+  # `not_from: unavailable` so a gateway reboot can't fire us: the OSELIA `event` entity
+  # goes available -> unavailable -> available on the device's status LWT cycle, and on
+  # return HA restores the *last* gesture's timestamp/event_type. Without this guard that
+  # bounce looks like a fresh press and moves the shutter. A real press never comes *from*
+  # unavailable (the device must be online to send a gesture).
+  - platform: state
+    entity_id: !input oselia_event
+    not_from:
+      - unavailable
+
+variables:
+  gesture: !input gesture
+  cover_action: !input cover_action
+  stop_if_moving: !input stop_if_moving
+  cover_entity: !input cover
+
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none
+         and trigger.from_state.state != 'unavailable'
+         and trigger.to_state is not none
+         and trigger.to_state.state not in ['unknown', 'unavailable']
+         and trigger.to_state.attributes.event_type == gesture }}
+
+action:
+  - choose:
+      # Press-while-moving -> stop. Checked first so it overrides the chosen action.
+      - conditions:
+          - "{{ stop_if_moving }}"
+          - "{{ states(cover_entity) in ['opening', 'closing'] }}"
+        sequence:
+          - service: cover.stop_cover
+            target:
+              entity_id: !input cover
+    default:
+      - choose:
+          - conditions: "{{ cover_action == 'open' }}"
+            sequence:
+              - service: cover.open_cover
+                target:
+                  entity_id: !input cover
+          - conditions: "{{ cover_action == 'close' }}"
+            sequence:
+              - service: cover.close_cover
+                target:
+                  entity_id: !input cover
+          - conditions: "{{ cover_action == 'stop' }}"
+            sequence:
+              - service: cover.stop_cover
+                target:
+                  entity_id: !input cover
+          - conditions: "{{ cover_action == 'toggle' }}"
+            sequence:
+              - service: cover.toggle
+                target:
+                  entity_id: !input cover

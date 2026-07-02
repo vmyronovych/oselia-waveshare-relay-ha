@@ -17,16 +17,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The blueprint is bundled inside the package (custom_components/.../blueprints/) so
-      # it ships in the HACS zip and auto-installs. The canonical copy at the repo root is
-      # what humans edit. Fail if they drift -- resync with:
-      #   cp blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
-      #      custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
+      # Blueprints are bundled inside the package (custom_components/.../blueprints/) so
+      # they ship in the HACS zip and auto-install. The canonical copies at the repo root
+      # are what humans edit. Fail if any drift -- resync by copying the root copy over the
+      # bundled one, e.g.:
+      #   cp blueprints/automation/vmyronovych/<name>.yaml \
+      #      custom_components/waveshare_relay/blueprints/automation/vmyronovych/<name>.yaml
       - name: Canonical and bundled blueprint copies must match
         run: |
-          diff -u \
-            blueprints/automation/vmyronovych/oselia_button_to_relay.yaml \
-            custom_components/waveshare_relay/blueprints/automation/vmyronovych/oselia_button_to_relay.yaml
+          diff -ru \
+            blueprints/automation/vmyronovych \
+            custom_components/waveshare_relay/blueprints/automation/vmyronovych
 
   hassfest:
     name: hassfest
