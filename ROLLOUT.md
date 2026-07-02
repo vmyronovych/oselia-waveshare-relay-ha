@@ -127,17 +127,40 @@ Then add the first board:
 
 ---
 
-## 8. Wire the wall switches → relays (OSELIA)
+## 8. Pair roller shutters into covers (if any)
 
-- [ ] HA → Settings → Automations & Scenes → **Blueprints** — the *OSELIA button → Waveshare
-      relay* blueprint is already there (the integration installs it on startup; no import).
-- [ ] Create one automation per mapping: pick the **OSELIA input**, the **gesture**
+A shutter is two relays (up + down). Rather than driving them raw, pair them into one
+native `cover` so the interlock, break-before-make and travel timing live in tested code.
+
+- [ ] **Configure → Add a roller shutter** on the Waveshare hub: pick the **board**, the
+      **up relay** and **down relay** (the numbers match the switch labels), and a name.
+- [ ] **Travel times**: leave `0` to start (open / close / stop work immediately); enter the
+      seconds of a full run each way later to unlock the **position slider** and go-to-%.
+- [ ] Confirm the new `cover.<name>` opens / stops / closes (only one coil is ever live).
+
+> Wiring note: the up/down relays must be wired so both coils can never be energized at
+> once (mechanical interlock). The cover adds a software interlock on top as belt-and-braces.
+
+---
+
+## 9. Wire the wall switches (OSELIA)
+
+Two bundled blueprints — both installed on startup (no import), updated with the integration:
+
+- [ ] **Lights** — *OSELIA button → Waveshare relay*: pick the **OSELIA input**, **gesture**
       (single/double/long), the **relay**, and the **action** (toggle / on / off / pulse).
-- [ ] Press the physical switch → confirm the relay flips.
+- [ ] **Shutters** — *OSELIA button → roller shutter (cover)*: map a gesture to a `cover`
+      with open / close / stop. Convention: **tap = light, hold (or double) = shutter**, and
+      a press while the shutter is moving **stops** it — so one button drives both.
+- [ ] Press the physical switch → confirm the relay flips / the shutter moves.
 
-> Blueprint updates arrive with the integration (update via HACS + restart). If the
-> blueprint is somehow missing, restart HA and it's re-created. Older builds (≤ v0.1.x)
-> predate auto-install — there you import it once from the repo `main` URL.
+> Prefer the panel? The **OSELIA Hearth** integration adds an *OSELIA Config* sidebar page
+> that authors these bindings for you (learn a button by pressing it, then bind it) and a
+> resident dashboard of the results. See the OSELIA Hearth repo.
+
+> Blueprint updates arrive with the integration (update via HACS + restart). If a blueprint
+> is somehow missing, restart HA and it's re-created. Older builds (≤ v0.1.x) predate
+> auto-install — there you import it once from the repo `main` URL.
 > See **[UPGRADING.md](UPGRADING.md)** for the full update guide.
 
 ---
