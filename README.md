@@ -11,13 +11,15 @@ on an RS485/USB adapter — built for the
 working across the **4 / 8 / 16 / 32-channel** family since they share one protocol.
 
 Unlike hand-written `modbus:` YAML, this gives you a proper **config flow**, a tidy
-**device per board**, native **switch** entities you can rename, and — uniquely —
+**device per board**, native **switch** entities you can rename, **roller-shutter `cover`**
+entities (pair two relays into one shutter with interlock + timed position), and — uniquely —
 **commissioning from inside HA** (set a board's Modbus address / baud rate over the bus,
 no SSCOM or Modbus Poll needed).
 
 > Designed to pair with the [**OSELIA Hearth**](https://github.com/vmyronovych/oselia-hearth-di16g-ha)
-> wall-switch gateway: a bundled **blueprint** maps any OSELIA button gesture
-> (single / double / long) to any relay action in two clicks.
+> wall-switch gateway: bundled **blueprints** map any OSELIA button gesture
+> (single / double / long) to a relay action *or* a roller shutter — tap = light,
+> hold = shutter — in two clicks.
 
 > 📋 **Deploying at a new site?** Follow [**ROLLOUT.md**](ROLLOUT.md) — a start-to-finish
 > checklist (bench-provision addresses → wire the bus → bridge/serial → HA → wire buttons).
